@@ -1,40 +1,31 @@
 import { useEffect, useMemo, useState } from 'react'
 import axios from 'axios'
+import { useCloudAuth } from './hooks/useCloudAuth'
+import { useGoogleDriveBackup } from './hooks/useGoogleDriveBackup'
+import {
+  deleteCloudWatchedEpisode,
+  getEpisodeKey,
+  loadCloudTrackedSeries,
+  loadCloudWatchedEpisodes,
+  publishCloudProfile,
+  saveCloudTrackedSeries,
+  saveCloudWatchedEpisode,
+} from './services/cloudStore'
+import {
+  ActorStat,
+  CalendarEvent,
+  CalendarNewEpisode,
+  EpisodeDetail,
+  GenreStat,
+  OverviewStats,
+  SearchResult,
+  SeriesVaultBackup,
+  TopSeriesStat,
+  TrackedSeries,
+  WatchedEpisodeRecord,
+  YearStat,
+} from './types/series'
 import './App.css'
-
-type SearchResult = {
-  tmdb_id: number
-  name: string
-  first_air_date?: string
-  overview?: string
-  poster_path?: string
-}
-
-type TrackedSeries = {
-  id: number
-  tmdb_id: number
-  title: string
-  overview?: string
-  poster_path?: string
-  completed_percent: number
-  number_of_seasons?: number
-  number_of_episodes?: number
-  status?: string
-  last_synced_at?: string
-}
-
-type EpisodeDetail = {
-  id: number
-  season_number: number
-  episode_number: number
-  title?: string
-  overview?: string
-  air_date?: string
-  runtime?: number
-  still_path?: string
-  watched: boolean
-  progress_percent: number
-}
 
 type SeasonEpisodeGroup = {
   seasonNumber: number
@@ -42,60 +33,8 @@ type SeasonEpisodeGroup = {
   watchedCount: number
 }
 
-type CalendarEvent = {
-  episode_id: number
-  series_id: number
-  series_title?: string
-  season_number?: number
-  episode_number?: number
-  title?: string
-  air_date?: string
-  still_path?: string
-  series_poster_path?: string
-  watched?: boolean
-}
-
-type CalendarNewEpisode = {
-  episode_id: number
-  series_id: number
-  series_title?: string
-  season_number?: number
-  episode_number?: number
-  title?: string
-  air_date?: string
-  still_path?: string
-  series_poster_path?: string
-}
-
-type OverviewStats = {
-  total_watched_episodes: number
-  total_runtime_minutes: number
-}
-
-type GenreStat = {
-  genre: string
-  count: number
-}
-
-type ActorStat = {
-  actor: string
-  profile_path?: string
-  count: number
-}
-
-type YearStat = {
-  year: string
-  count: number
-}
-
-type TopSeriesStat = {
-  series: string
-  poster_path?: string
-  count: number
-}
-
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
   headers: { 'Content-Type': 'application/json' },
 })
 
@@ -144,7 +83,39 @@ const getApiErrorMessage = (err: unknown, fallback: string) => {
   return fallback
 }
 
+const mergeTrackedSeries = (current: TrackedSeries[], incoming: TrackedSeries[]) => {
+  const byTmdbId = new Map<number, TrackedSeries>()
+
+  current.forEach((series) => byTmdbId.set(series.tmdb_id, series))
+  incoming.forEach((series) => {
+    const existing = byTmdbId.get(series.tmdb_id)
+    byTmdbId.set(series.tmdb_id, existing ? { ...series, ...existing } : series)
+  })
+
+  return Array.from(byTmdbId.values()).sort((a, b) => a.title.localeCompare(b.title))
+}
+
+const watchedMapFromRecords = (records: WatchedEpisodeRecord[]) => {
+  const map = new Map<string, WatchedEpisodeRecord>()
+  records.forEach((record) => map.set(record.episode_key, record))
+  return map
+}
+
+const applyWatchedRecords = (items: EpisodeDetail[], watchedRecords: Map<string, WatchedEpisodeRecord>) =>
+  items.map((episode) => {
+    const record = watchedRecords.get(getEpisodeKey(episode))
+    if (!record) return episode
+
+    return {
+      ...episode,
+      watched: true,
+      progress_percent: record.progress_percent,
+    }
+  })
+
 function App() {
+  const auth = useCloudAuth()
+  const drive = useGoogleDriveBackup(auth.driveAccessToken)
   const [activeTab, setActiveTab] = useState<'search' | 'tracked' | 'calendar' | 'stats'>('search')
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResult[]>([])
@@ -162,11 +133,82 @@ function App() {
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle')
+  const [cloudWatchedRecords, setCloudWatchedRecords] = useState<Map<string, WatchedEpisodeRecord>>(new Map())
+  const [episodeCache, setEpisodeCache] = useState<Record<string, EpisodeDetail[]>>({})
+  const [hasLoadedCloudData, setHasLoadedCloudData] = useState(false)
   const [expandedSeasons, setExpandedSeasons] = useState<Set<number>>(new Set())
 
   useEffect(() => {
     fetchTracked()
   }, [])
+
+  useEffect(() => {
+    if (!auth.user) {
+      setCloudWatchedRecords(new Map())
+      setSyncStatus('idle')
+      setHasLoadedCloudData(false)
+      return
+    }
+
+    let cancelled = false
+
+    const loadCloudData = async () => {
+      try {
+        setSyncStatus('syncing')
+        await publishCloudProfile(auth.user.uid, auth.user)
+
+        const [cloudTracked, cloudWatched, driveBackup] = await Promise.all([
+          loadCloudTrackedSeries(auth.user.uid),
+          loadCloudWatchedEpisodes(auth.user.uid),
+          drive.loadBackup(),
+        ])
+
+        if (cancelled) return
+
+        const backupTracked = driveBackup?.trackedSeries ?? []
+        const backupWatched = driveBackup?.watchedEpisodes ?? []
+        const nextWatchedRecords = watchedMapFromRecords([...cloudWatched, ...backupWatched])
+
+        setTracked((current) => mergeTrackedSeries(current, [...backupTracked, ...cloudTracked]))
+        setCloudWatchedRecords(nextWatchedRecords)
+        setEpisodeCache((current) => ({ ...driveBackup?.episodeCache, ...current }))
+        setHasLoadedCloudData(true)
+        setSyncStatus('synced')
+      } catch {
+        if (!cancelled) {
+          setSyncStatus('error')
+          setHasLoadedCloudData(true)
+        }
+      }
+    }
+
+    loadCloudData()
+
+    return () => {
+      cancelled = true
+    }
+  }, [auth.user?.uid, auth.driveAccessToken])
+
+  useEffect(() => {
+    if (!auth.user || !drive.isConfigured || !hasLoadedCloudData) return
+
+    const timer = window.setTimeout(async () => {
+      const backup: SeriesVaultBackup = {
+        version: 1,
+        trackedSeries: tracked,
+        watchedEpisodes: Array.from(cloudWatchedRecords.values()),
+        episodeCache,
+        exportedAt: new Date().toISOString(),
+      }
+
+      setSyncStatus('syncing')
+      const saved = await drive.saveBackup(backup)
+      setSyncStatus(saved ? 'synced' : 'error')
+    }, 900)
+
+    return () => window.clearTimeout(timer)
+  }, [auth.user?.uid, drive.isConfigured, tracked, cloudWatchedRecords, episodeCache, hasLoadedCloudData])
 
   useEffect(() => {
     if (activeTab === 'calendar') {
@@ -184,6 +226,10 @@ function App() {
       fetchSeriesEpisodes(selectedSeries.id)
     }
   }, [selectedSeries])
+
+  useEffect(() => {
+    setEpisodes((current) => applyWatchedRecords(current, cloudWatchedRecords))
+  }, [cloudWatchedRecords])
 
   const seasonGroups = useMemo<SeasonEpisodeGroup[]>(() => {
     const groups = new Map<number, EpisodeDetail[]>()
@@ -230,11 +276,11 @@ function App() {
     try {
       setLoading(true)
       const response = await api.get<TrackedSeries[]>('/series/tracked')
-      setTracked(response.data)
+      setTracked((current) => mergeTrackedSeries(response.data, current))
       setLoading(false)
     } catch (err) {
       setLoading(false)
-      setError('Falha ao carregar séries')
+      setError(getApiErrorMessage(err, 'Falha ao carregar séries'))
     }
   }
 
@@ -255,7 +301,14 @@ function App() {
     try {
       setLoading(true)
       await api.post('/series', { tmdb_id })
-      await fetchTracked()
+      const trackedResponse = await api.get<TrackedSeries[]>('/series/tracked')
+      setTracked((current) => mergeTrackedSeries(trackedResponse.data, current))
+
+      const addedSeries = trackedResponse.data.find((series) => series.tmdb_id === tmdb_id)
+      if (auth.user && addedSeries) {
+        await saveCloudTrackedSeries(auth.user.uid, addedSeries)
+      }
+
       setLoading(false)
       setError('')
     } catch (err) {
@@ -267,18 +320,62 @@ function App() {
   const fetchSeriesEpisodes = async (seriesId: number) => {
     try {
       const response = await api.get<EpisodeDetail[]>(`/series/${seriesId}/episodes`)
-      setEpisodes(response.data)
+      const nextEpisodes = applyWatchedRecords(response.data, cloudWatchedRecords)
+      setEpisodes(nextEpisodes)
+
+      const series = tracked.find((item) => item.id === seriesId)
+      if (series) {
+        setEpisodeCache((current) => ({
+          ...current,
+          [String(series.tmdb_id)]: nextEpisodes,
+        }))
+      }
     } catch (err) {
-      setError('Não foi possível carregar episódios')
+      const series = tracked.find((item) => item.id === seriesId)
+      const cachedEpisodes = series ? episodeCache[String(series.tmdb_id)] : undefined
+
+      if (cachedEpisodes) {
+        setEpisodes(applyWatchedRecords(cachedEpisodes, cloudWatchedRecords))
+        return
+      }
+
+      setError(getApiErrorMessage(err, 'Não foi possível carregar episódios'))
     }
   }
 
   const toggleEpisodeWatch = async (episode: EpisodeDetail) => {
     try {
       if (episode.watched) {
-        await api.delete(`/watch/episodes/${episode.id}`)
+        await api.delete(`/watch/episodes/${episode.id}`).catch(() => null)
+        if (auth.user) {
+          await deleteCloudWatchedEpisode(auth.user.uid, episode)
+          setCloudWatchedRecords((current) => {
+            const next = new Map(current)
+            next.delete(getEpisodeKey(episode))
+            return next
+          })
+        }
       } else {
-        await api.patch(`/watch/episodes/${episode.id}`, { watched: true, progress_percent: 100 })
+        await api.patch(`/watch/episodes/${episode.id}`, { watched: true, progress_percent: 100 }).catch(() => null)
+        if (auth.user && selectedSeries) {
+          await saveCloudWatchedEpisode(auth.user.uid, selectedSeries, episode)
+          setCloudWatchedRecords((current) => {
+            const next = new Map(current)
+            next.set(getEpisodeKey(episode), {
+              episode_key: getEpisodeKey(episode),
+              episode_id: episode.id,
+              tmdb_episode_id: episode.tmdb_episode_id,
+              series_tmdb_id: selectedSeries.tmdb_id,
+              watched_at: new Date().toISOString(),
+              progress_percent: 100,
+              runtime_minutes: episode.runtime,
+              title: episode.title,
+              season_number: episode.season_number,
+              episode_number: episode.episode_number,
+            })
+            return next
+          })
+        }
       }
       if (selectedSeries) {
         await fetchSeriesEpisodes(selectedSeries.id)
@@ -355,6 +452,13 @@ function App() {
     return `${selectedSeries.title} • ${selectedSeries.number_of_seasons ?? 0} temporadas • ${selectedSeries.completed_percent}% assistido`
   }, [selectedSeries])
 
+  const syncLabel = {
+    idle: auth.isConfigured ? 'Cloud pronto' : 'Cloud não configurado',
+    syncing: 'Sincronizando',
+    synced: 'Sincronizado',
+    error: 'Falha no sync',
+  }[syncStatus]
+
   return (
     <div className="app-shell">
       <header className="app-header">
@@ -364,6 +468,21 @@ function App() {
         </div>
         <div className="header-actions">
           <span className="status-chip">{loading ? 'Carregando...' : 'Pronto'}</span>
+          {auth.isConfigured && (
+            <div className="cloud-auth">
+              {auth.user?.picture && <img className="cloud-avatar" src={auth.user.picture} alt={auth.user.name || 'Usuário Google'} />}
+              <span className={`cloud-status cloud-status-${syncStatus}`}>{syncLabel}</span>
+              {auth.isSignedIn ? (
+                <button type="button" className="cloud-button" onClick={auth.signOut}>
+                  Sair
+                </button>
+              ) : (
+                <button type="button" className="cloud-button" onClick={auth.signIn} disabled={auth.isLoading}>
+                  Entrar com Google
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </header>
 

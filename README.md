@@ -63,3 +63,4 @@ Aplicativo pessoal para registrar séries de TV assistidas, inspirado em Letterb
 - TMDb requer atribuição visível no frontend.
 - O backend sincroniza séries, temporadas, episódios, elenco e gêneros.
 - O modelo de dados mantém histórico de episódios assistidos por usuário.
+- O frontend já está preparado para Vercel + Firebase/Google Drive. Veja `docs/vercel-firebase.md`.

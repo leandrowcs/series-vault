@@ -279,6 +279,53 @@
   display: flex;
   gap: 12px;
   align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.cloud-auth {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #111827;
+  border: 1px solid #1f2937;
+  border-radius: 8px;
+  padding: 6px;
+}
+
+.cloud-avatar {
+  width: 30px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.cloud-status {
+  color: #cbd5e1;
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 0 4px;
+}
+
+.cloud-status-error {
+  color: #f97316;
+}
+
+.cloud-status-syncing {
+  color: #93c5fd;
+}
+
+.cloud-status-synced {
+  color: #5eead4;
+}
+
+.cloud-button {
+  border: 0;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #0f172a;
+  font-weight: 800;
+  padding: 8px 10px;
 }
 
 .empty-state {

@@ -104,6 +104,7 @@ def get_series_episodes(series_id: int = Path(..., gt=0), session: Session = Dep
             episodes.append(
                 {
                     "id": episode.id,
+                    "tmdb_episode_id": episode.tmdb_episode_id,
                     "season_number": season.season_number,
                     "episode_number": episode.episode_number,
                     "title": episode.title,
