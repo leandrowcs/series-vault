@@ -4,7 +4,7 @@ This setup keeps the current FastAPI/TMDb backend available while the frontend b
 
 ## Frontend deployment
 
-Vercel can build from the repository root using `vercel.json`:
+Vercel can build from the repository root using `vercel.json`. In the Vercel project settings, leave **Root Directory** as the repository root:
 
 ```json
 {
@@ -12,6 +12,14 @@ Vercel can build from the repository root using `vercel.json`:
   "buildCommand": "cd frontend && npm run build",
   "outputDirectory": "frontend/dist"
 }
+```
+
+If you set **Root Directory** to `frontend` in Vercel instead, remove the root `vercel.json` commands or change them to:
+
+```txt
+Install Command: npm ci
+Build Command: npm run build
+Output Directory: dist
 ```
 
 Set these environment variables in Vercel:
