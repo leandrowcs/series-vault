@@ -35,6 +35,8 @@ type SeasonEpisodeGroup = {
 
 type ActiveTab = 'home' | 'tracked' | 'calendar' | 'stats' | 'search'
 
+type LibraryFilter = 'watching' | 'inProgress' | 'waiting' | 'finished'
+
 type DashboardMetric = {
   label: string
   value: string
@@ -199,6 +201,7 @@ function App() {
   const [episodeCache, setEpisodeCache] = useState<Record<string, EpisodeDetail[]>>({})
   const [hasLoadedCloudData, setHasLoadedCloudData] = useState(false)
   const [expandedSeasons, setExpandedSeasons] = useState<Set<number>>(new Set())
+  const [libraryFilter, setLibraryFilter] = useState<LibraryFilter>('watching')
 
   useEffect(() => {
     fetchTracked()
@@ -603,7 +606,7 @@ function App() {
       .filter((record) => record.series_tmdb_id === series.tmdb_id)
       .sort((recordA, recordB) => new Date(recordB.watched_at).getTime() - new Date(recordA.watched_at).getTime())[0]
 
-    if (!latest?.season_number || !latest?.episode_number) return 'Ainda nao iniciado'
+    if (!latest?.season_number || !latest?.episode_number) return 'Ainda não iniciado'
     return `S${latest.season_number} - E${latest.episode_number}`
   }
 
@@ -611,13 +614,13 @@ function App() {
 
   const dashboardMetrics: DashboardMetric[] = [
     {
-      label: 'Series',
+      label: 'Séries',
       value: String(tracked.length),
       icon: 'play',
       tone: 'cyan',
     },
     {
-      label: 'Episodios assistidos',
+      label: 'Episódios assistidos',
       value: String(stats.overview?.total_watched_episodes ?? watchedRecords.length),
       icon: 'tv',
       tone: 'purple',
@@ -636,30 +639,61 @@ function App() {
     },
   ]
 
+  const libraryTabs: { id: LibraryFilter; label: string }[] = [
+    { id: 'watching', label: 'Assistindo' },
+    { id: 'inProgress', label: 'Em Andamento' },
+    { id: 'waiting', label: 'Aguardando' },
+    { id: 'finished', label: 'Finalizadas' },
+  ]
+
+  const librarySeries = useMemo(() => {
+    if (libraryFilter === 'inProgress') {
+      return tracked.filter((series) => series.completed_percent > 0 && series.completed_percent < 100)
+    }
+
+    if (libraryFilter === 'waiting') {
+      return tracked.filter((series) => series.completed_percent === 0)
+    }
+
+    if (libraryFilter === 'finished') {
+      return tracked.filter((series) => series.completed_percent >= 100)
+    }
+
+    return tracked
+  }, [tracked, libraryFilter])
+
+  const cycleLibraryFilter = () => {
+    const currentIndex = libraryTabs.findIndex((tab) => tab.id === libraryFilter)
+    const nextTab = libraryTabs[(currentIndex + 1) % libraryTabs.length]
+    setLibraryFilter(nextTab.id)
+  }
+
   const navItems: { id: ActiveTab; label: string; icon: string }[] = [
-    { id: 'home', label: 'Inicio', icon: 'home' },
+    { id: 'home', label: 'Início', icon: 'home' },
     { id: 'tracked', label: 'Biblioteca', icon: 'library' },
-    { id: 'calendar', label: 'Calendario', icon: 'calendar' },
-    { id: 'stats', label: 'Estatisticas', icon: 'stats' },
+    { id: 'calendar', label: 'Calendário', icon: 'calendar' },
+    { id: 'stats', label: 'Estatísticas', icon: 'stats' },
     { id: 'search', label: 'Mais', icon: 'more' },
   ]
 
   return (
     <div className="app-shell">
       <main className="app-main">
-        <header className="home-header">
-          <div className="brand-mark" aria-label="Series Vault">
-            <span>Series</span>
-            <strong>Vault</strong>
-          </div>
-          <button type="button" className="icon-button" aria-label="Notificacoes">
-            <span className="vault-icon vault-icon-bell" aria-hidden="true" />
-          </button>
-        </header>
+        {activeTab !== 'tracked' && (
+          <header className="home-header">
+            <div className="brand-mark" aria-label="Series Vault">
+              <span>Series</span>
+              <strong>Vault</strong>
+            </div>
+            <button type="button" className="icon-button" aria-label="Notificações">
+              <span className="vault-icon vault-icon-bell" aria-hidden="true" />
+            </button>
+          </header>
+        )}
 
-        {auth.isConfigured && (
+        {activeTab === 'home' && auth.isConfigured && (
           <div className="cloud-auth">
-            {auth.user?.picture && <img className="cloud-avatar" src={auth.user.picture} alt={auth.user.name || 'Usuario Google'} />}
+            {auth.user?.picture && <img className="cloud-avatar" src={auth.user.picture} alt={auth.user.name || 'Usuário Google'} />}
             <span className={`cloud-status cloud-status-${syncStatus}`}>{syncLabel}</span>
             {auth.isSignedIn ? (
               <button type="button" className="cloud-button" onClick={auth.signOut}>
@@ -702,7 +736,7 @@ function App() {
 
               <div className="watch-list">
                 {continueWatching.length === 0 ? (
-                  <p className="empty-state">Adicione uma serie para montar sua fila.</p>
+                  <p className="empty-state">Adicione uma série para montar sua fila.</p>
                 ) : (
                   continueWatching.map((series) => (
                     <button
@@ -734,9 +768,9 @@ function App() {
 
             <section className="home-section">
               <div className="section-heading">
-                <h2>Proximos episodios</h2>
+                <h2>Próximos episódios</h2>
                 <button type="button" onClick={() => setActiveTab('calendar')}>
-                  Ver calendario
+                  Ver calendário
                 </button>
               </div>
 
@@ -744,13 +778,13 @@ function App() {
                 <button type="button" className="upcoming-card" onClick={() => setActiveTab('calendar')}>
                   <MediaImage
                     path={upcomingEpisode.still_path ?? upcomingEpisode.series_poster_path}
-                    alt={`Imagem de ${upcomingEpisode.title ?? upcomingEpisode.series_title ?? 'episodio'}`}
+                    alt={`Imagem de ${upcomingEpisode.title ?? upcomingEpisode.series_title ?? 'episódio'}`}
                     className="upcoming-poster"
                     fallback="Sem imagem"
                     size="w300"
                   />
                   <span>
-                    <strong>{upcomingEpisode.series_title ?? 'Serie acompanhada'}</strong>
+                    <strong>{upcomingEpisode.series_title ?? 'Série acompanhada'}</strong>
                     <small>
                       S{upcomingEpisode.season_number ?? '-'} - E{upcomingEpisode.episode_number ?? '-'}
                     </small>
@@ -758,7 +792,7 @@ function App() {
                   </span>
                 </button>
               ) : (
-                <p className="empty-state">Nenhum episodio no calendario desta semana.</p>
+                <p className="empty-state">Nenhum episódio no calendário desta semana.</p>
               )}
             </section>
           </section>
@@ -798,33 +832,63 @@ function App() {
         )}
 
         {activeTab === 'tracked' && (
-          <section className="panel grid-layout">
-            <div className="panel-inner">
-              <h2>Séries acompanhadas</h2>
-              {tracked.length === 0 ? (
-                <p className="empty-state">Nenhuma série acompanhada ainda.</p>
-              ) : (
-                tracked.map((series) => (
-                  <div
-                    key={series.id}
-                    className={`card card-selectable media-card ${selectedSeries?.id === series.id ? 'selected' : ''}`}
-                    onClick={() => setSelectedSeries(series)}
-                  >
-                    <MediaImage path={series.poster_path} alt={`Capa de ${series.title}`} className="poster-thumb" fallback="Sem capa" size="w185" />
-                    <div className="card-copy">
-                      <strong>{series.title}</strong>
-                      <p>{series.status ?? 'Status desconhecido'}</p>
-                      <p>{series.completed_percent}% completado</p>
-                      <p>{series.number_of_seasons ?? 0} temporadas · {series.number_of_episodes ?? 0} episódios</p>
-                    </div>
-                    <span className="chip">{series.completed_percent}%</span>
-                  </div>
-                ))
-              )}
+          <section className="library-view">
+            <div className="library-header">
+              <h1>Biblioteca</h1>
+              <div className="library-actions">
+                <button type="button" className="icon-button" aria-label="Buscar séries" onClick={() => setActiveTab('search')}>
+                  <span className="vault-icon vault-icon-search" aria-hidden="true" />
+                </button>
+                <button type="button" className="icon-button" aria-label="Alternar filtro" onClick={cycleLibraryFilter}>
+                  <span className="vault-icon vault-icon-filter" aria-hidden="true" />
+                </button>
+              </div>
             </div>
 
-            <div className="panel-inner">
-              <h2>Detalhes da série</h2>
+            <div className="library-tabs" role="tablist" aria-label="Filtros da biblioteca">
+              {libraryTabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={libraryFilter === tab.id}
+                  className={libraryFilter === tab.id ? 'library-tab active' : 'library-tab'}
+                  onClick={() => setLibraryFilter(tab.id)}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {librarySeries.length === 0 ? (
+              <p className="empty-state">Nenhuma série encontrada neste filtro.</p>
+            ) : (
+              <div className="library-grid">
+                {librarySeries.map((series) => (
+                  <button
+                    key={series.id}
+                    type="button"
+                    className={`library-card ${selectedSeries?.id === series.id ? 'selected' : ''}`}
+                    onClick={() => setSelectedSeries(series)}
+                  >
+                    <MediaImage path={series.poster_path} alt={`Capa de ${series.title}`} className="library-poster" fallback="Sem capa" size="w342" />
+                    <span className="library-card-copy">
+                      <strong>{series.title}</strong>
+                      <small>{getLatestEpisodeLabel(series)}</small>
+                      <span className="progress-track">
+                        <span className="progress-fill" style={{ width: `${series.completed_percent}%` }} />
+                      </span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <section className="library-detail">
+              <div className="section-heading">
+                <h2>Detalhes da série</h2>
+                {selectedSeries && <span className="chip">{selectedSeries.completed_percent}%</span>}
+              </div>
               <div className="detail-card">
                 {selectedSeries ? (
                   <div className="series-summary">
@@ -835,7 +899,7 @@ function App() {
                     </div>
                   </div>
                 ) : (
-                  <p>{selectedInfo}</p>
+                  <p className="empty-state">{selectedInfo}</p>
                 )}
                 {episodes.length === 0 ? (
                   <p className="empty-state">Selecione uma série para ver seus episódios.</p>
@@ -886,7 +950,7 @@ function App() {
                   </div>
                 )}
               </div>
-            </div>
+            </section>
           </section>
         )}
 

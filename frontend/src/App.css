@@ -232,6 +232,133 @@
   gap: 10px;
 }
 
+.library-view {
+  display: grid;
+  gap: 14px;
+}
+
+.library-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 48px;
+}
+
+.library-header h1 {
+  margin: 0;
+  font-size: 1.38rem;
+  line-height: 1.1;
+}
+
+.library-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.library-tabs {
+  display: grid;
+  grid-auto-columns: max-content;
+  grid-auto-flow: column;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 0 0 9px;
+  border-bottom: 1px solid var(--border);
+  scrollbar-width: none;
+}
+
+.library-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.library-tab {
+  min-height: 34px;
+  padding: 0 13px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.76rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.library-tab.active {
+  background: linear-gradient(135deg, rgba(124, 77, 255, 0.92), rgba(169, 112, 255, 0.84));
+  box-shadow: 0 8px 22px rgba(124, 77, 255, 0.28);
+}
+
+.library-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.library-card {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 0 0 9px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(16, 23, 34, 0.82);
+  color: var(--text);
+  text-align: left;
+}
+
+.library-card:hover,
+.library-card.selected {
+  border-color: var(--border-strong);
+}
+
+.library-card.selected {
+  box-shadow: 0 0 0 1px rgba(169, 112, 255, 0.18), 0 14px 30px rgba(124, 77, 255, 0.14);
+}
+
+.library-poster {
+  width: 100%;
+  aspect-ratio: 5 / 6;
+  object-fit: cover;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.library-card-copy {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 0 8px;
+}
+
+.library-card-copy strong {
+  overflow: hidden;
+  font-size: 0.8rem;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.library-card-copy small {
+  color: var(--text);
+  font-size: 0.72rem;
+}
+
+.library-card-copy .progress-track {
+  height: 4px;
+}
+
+.library-detail {
+  display: grid;
+  gap: 10px;
+  margin-top: 4px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(16, 23, 34, 0.72);
+}
+
 .section-heading {
   display: flex;
   align-items: center;
@@ -800,6 +927,42 @@
   height: 2px;
   background: currentColor;
   box-shadow: 6px 3px 0 -1px currentColor;
+}
+
+.vault-icon-search::before {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  width: 10px;
+  height: 10px;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+}
+
+.vault-icon-search::after {
+  content: "";
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 8px;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+  transform: rotate(45deg);
+  transform-origin: center;
+}
+
+.vault-icon-filter::before {
+  content: "";
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  top: 5px;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+  box-shadow: 4px 6px 0 currentColor, 8px 12px 0 currentColor;
 }
 
 .vault-icon-home::before {
