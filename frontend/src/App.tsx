@@ -33,6 +33,15 @@ type SeasonEpisodeGroup = {
   watchedCount: number
 }
 
+type ActiveTab = 'home' | 'tracked' | 'calendar' | 'stats' | 'search'
+
+type DashboardMetric = {
+  label: string
+  value: string
+  icon: string
+  tone: 'cyan' | 'purple' | 'amber' | 'green'
+}
+
 const configuredApiBaseUrl = String(import.meta.env.VITE_API_BASE_URL ?? '').trim()
 const apiBaseUrl = configuredApiBaseUrl || '/api'
 const hasApi = Boolean(apiBaseUrl)
@@ -168,7 +177,7 @@ const normalizeTrackedSeries = (series: Partial<TrackedSeries> & { name?: string
 function App() {
   const auth = useCloudAuth()
   const drive = useGoogleDriveBackup(auth.driveAccessToken)
-  const [activeTab, setActiveTab] = useState<'search' | 'tracked' | 'calendar' | 'stats'>('search')
+  const [activeTab, setActiveTab] = useState<ActiveTab>('home')
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResult[]>([])
   const [tracked, setTracked] = useState<TrackedSeries[]>([])
@@ -263,10 +272,10 @@ function App() {
   }, [auth.user?.uid, drive.isConfigured, tracked, cloudWatchedRecords, episodeCache, hasLoadedCloudData])
 
   useEffect(() => {
-    if (activeTab === 'calendar') {
+    if (activeTab === 'home' || activeTab === 'calendar') {
       fetchCalendar()
     }
-    if (activeTab === 'stats') {
+    if (activeTab === 'home' || activeTab === 'stats') {
       fetchStats()
     }
   }, [activeTab])
@@ -572,52 +581,189 @@ function App() {
     error: 'Falha no sync',
   }[syncStatus]
 
+  const watchedRecords = useMemo(() => Array.from(cloudWatchedRecords.values()), [cloudWatchedRecords])
+
+  const totalRuntimeMinutes =
+    stats.overview?.total_runtime_minutes ??
+    watchedRecords.reduce((total, record) => total + (record.runtime_minutes ?? 0), 0)
+
+  const activeWatchDays = new Set(watchedRecords.map((record) => record.watched_at.slice(0, 10))).size
+
+  const continueWatching = useMemo(
+    () =>
+      tracked
+        .filter((series) => series.completed_percent < 100)
+        .sort((seriesA, seriesB) => seriesB.completed_percent - seriesA.completed_percent)
+        .slice(0, 3),
+    [tracked],
+  )
+
+  const getLatestEpisodeLabel = (series: TrackedSeries) => {
+    const latest = watchedRecords
+      .filter((record) => record.series_tmdb_id === series.tmdb_id)
+      .sort((recordA, recordB) => new Date(recordB.watched_at).getTime() - new Date(recordA.watched_at).getTime())[0]
+
+    if (!latest?.season_number || !latest?.episode_number) return 'Ainda nao iniciado'
+    return `S${latest.season_number} - E${latest.episode_number}`
+  }
+
+  const upcomingEpisode = calendarEvents[0] ?? newEpisodes[0]
+
+  const dashboardMetrics: DashboardMetric[] = [
+    {
+      label: 'Series',
+      value: String(tracked.length),
+      icon: 'play',
+      tone: 'cyan',
+    },
+    {
+      label: 'Episodios assistidos',
+      value: String(stats.overview?.total_watched_episodes ?? watchedRecords.length),
+      icon: 'tv',
+      tone: 'purple',
+    },
+    {
+      label: 'Horas assistidas',
+      value: `${Math.round(totalRuntimeMinutes / 60)}h`,
+      icon: 'clock',
+      tone: 'amber',
+    },
+    {
+      label: 'Dias ativos',
+      value: String(activeWatchDays),
+      icon: 'calendar',
+      tone: 'green',
+    },
+  ]
+
+  const navItems: { id: ActiveTab; label: string; icon: string }[] = [
+    { id: 'home', label: 'Inicio', icon: 'home' },
+    { id: 'tracked', label: 'Biblioteca', icon: 'library' },
+    { id: 'calendar', label: 'Calendario', icon: 'calendar' },
+    { id: 'stats', label: 'Estatisticas', icon: 'stats' },
+    { id: 'search', label: 'Mais', icon: 'more' },
+  ]
+
   return (
     <div className="app-shell">
-      <header className="app-header">
-        <div>
-          <h1>Series Vault</h1>
-          <p>Registre séries, acompanhe episódios e veja suas estatísticas pessoais.</p>
-        </div>
-        <div className="header-actions">
-          <span className="status-chip">{loading ? 'Carregando...' : 'Pronto'}</span>
-          {auth.isConfigured && (
-            <div className="cloud-auth">
-              {auth.user?.picture && <img className="cloud-avatar" src={auth.user.picture} alt={auth.user.name || 'Usuário Google'} />}
-              <span className={`cloud-status cloud-status-${syncStatus}`}>{syncLabel}</span>
-              {auth.isSignedIn ? (
-                <button type="button" className="cloud-button" onClick={auth.signOut}>
-                  Sair
+      <main className="app-main">
+        <header className="home-header">
+          <div className="brand-mark" aria-label="Series Vault">
+            <span>Series</span>
+            <strong>Vault</strong>
+          </div>
+          <button type="button" className="icon-button" aria-label="Notificacoes">
+            <span className="vault-icon vault-icon-bell" aria-hidden="true" />
+          </button>
+        </header>
+
+        {auth.isConfigured && (
+          <div className="cloud-auth">
+            {auth.user?.picture && <img className="cloud-avatar" src={auth.user.picture} alt={auth.user.name || 'Usuario Google'} />}
+            <span className={`cloud-status cloud-status-${syncStatus}`}>{syncLabel}</span>
+            {auth.isSignedIn ? (
+              <button type="button" className="cloud-button" onClick={auth.signOut}>
+                Sair
+              </button>
+            ) : (
+              <button type="button" className="cloud-button" onClick={auth.signIn} disabled={auth.isLoading}>
+                Entrar
+              </button>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'home' && (
+          <section className="home-view">
+            <div className="greeting-block">
+              <h1>Boa noite, {auth.user?.name?.split(' ')[0] ?? 'Leandro'}!</h1>
+              <p>Pronto para mais uma maratona?</p>
+            </div>
+
+            <div className="metric-grid">
+              {dashboardMetrics.map((metric) => (
+                <div key={metric.label} className="metric-card">
+                  <span className={`metric-icon metric-icon-${metric.tone}`}>
+                    <span className={`vault-icon vault-icon-${metric.icon}`} aria-hidden="true" />
+                  </span>
+                  <strong>{metric.value}</strong>
+                  <span>{metric.label}</span>
+                </div>
+              ))}
+            </div>
+
+            <section className="home-section">
+              <div className="section-heading">
+                <h2>Continue assistindo</h2>
+                <button type="button" onClick={() => setActiveTab('tracked')}>
+                  Ver tudo
+                </button>
+              </div>
+
+              <div className="watch-list">
+                {continueWatching.length === 0 ? (
+                  <p className="empty-state">Adicione uma serie para montar sua fila.</p>
+                ) : (
+                  continueWatching.map((series) => (
+                    <button
+                      key={series.id}
+                      type="button"
+                      className="watch-row"
+                      onClick={() => {
+                        setSelectedSeries(series)
+                        setActiveTab('tracked')
+                      }}
+                    >
+                      <MediaImage path={series.poster_path} alt={`Capa de ${series.title}`} className="watch-poster" fallback="Sem capa" size="w185" />
+                      <span className="watch-copy">
+                        <strong>{series.title}</strong>
+                        <small>{getLatestEpisodeLabel(series)}</small>
+                        <span className="progress-track">
+                          <span className="progress-fill" style={{ width: `${series.completed_percent}%` }} />
+                        </span>
+                      </span>
+                      <span className="watch-percent">{series.completed_percent}%</span>
+                      <span className="play-button" aria-hidden="true">
+                        <span className="vault-icon vault-icon-play" />
+                      </span>
+                    </button>
+                  ))
+                )}
+              </div>
+            </section>
+
+            <section className="home-section">
+              <div className="section-heading">
+                <h2>Proximos episodios</h2>
+                <button type="button" onClick={() => setActiveTab('calendar')}>
+                  Ver calendario
+                </button>
+              </div>
+
+              {upcomingEpisode ? (
+                <button type="button" className="upcoming-card" onClick={() => setActiveTab('calendar')}>
+                  <MediaImage
+                    path={upcomingEpisode.still_path ?? upcomingEpisode.series_poster_path}
+                    alt={`Imagem de ${upcomingEpisode.title ?? upcomingEpisode.series_title ?? 'episodio'}`}
+                    className="upcoming-poster"
+                    fallback="Sem imagem"
+                    size="w300"
+                  />
+                  <span>
+                    <strong>{upcomingEpisode.series_title ?? 'Serie acompanhada'}</strong>
+                    <small>
+                      S{upcomingEpisode.season_number ?? '-'} - E{upcomingEpisode.episode_number ?? '-'}
+                    </small>
+                    <small>{formatDate(upcomingEpisode.air_date)}</small>
+                  </span>
                 </button>
               ) : (
-                <button type="button" className="cloud-button" onClick={auth.signIn} disabled={auth.isLoading}>
-                  Entrar com Google
-                </button>
+                <p className="empty-state">Nenhum episodio no calendario desta semana.</p>
               )}
-            </div>
-          )}
-        </div>
-      </header>
+            </section>
+          </section>
+        )}
 
-      <nav className="app-tabs">
-        {['search', 'tracked', 'calendar', 'stats'].map((tab) => (
-          <button
-            key={tab}
-            className={activeTab === tab ? 'tab active' : 'tab'}
-            onClick={() => {
-              setActiveTab(tab as typeof activeTab)
-              setError('')
-            }}
-          >
-            {tab === 'search' && 'Buscar'}
-            {tab === 'tracked' && 'Acompanhadas'}
-            {tab === 'calendar' && 'Calendário'}
-            {tab === 'stats' && 'Estatísticas'}
-          </button>
-        ))}
-      </nav>
-
-      <main className="app-main">
         {activeTab === 'search' && (
           <section className="panel">
             <h2>Buscar série</h2>
@@ -835,6 +981,23 @@ function App() {
           </section>
         )}
       </main>
+
+      <nav className="bottom-nav" aria-label="Navegacao principal">
+        {navItems.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            className={activeTab === item.id ? 'bottom-nav-item active' : 'bottom-nav-item'}
+            onClick={() => {
+              setActiveTab(item.id)
+              setError('')
+            }}
+          >
+            <span className={`vault-icon vault-icon-${item.icon}`} aria-hidden="true" />
+            <span>{item.label}</span>
+          </button>
+        ))}
+      </nav>
 
       <footer className="tmdb-attribution">
         This product uses the TMDB API but is not endorsed or certified by TMDB.
