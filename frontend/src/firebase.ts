@@ -21,7 +21,16 @@ const isConfiguredValue = (value: unknown) => {
 
 export const hasFirebaseConfig = REQUIRED_FIREBASE_KEYS.every((key) => isConfiguredValue(firebaseConfig[key]))
 
-const firebaseApp = hasFirebaseConfig ? initializeApp(firebaseConfig) : null
+const firebaseApp = (() => {
+  if (!hasFirebaseConfig) return null
+
+  try {
+    return initializeApp(firebaseConfig)
+  } catch (err) {
+    console.warn('Firebase disabled due to invalid runtime configuration.', err)
+    return null
+  }
+})()
 
 export const firebaseAuth = firebaseApp ? getAuth(firebaseApp) : null
 export const db = firebaseApp ? initializeFirestore(firebaseApp, { ignoreUndefinedProperties: true }) : null

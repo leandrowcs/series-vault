@@ -33,8 +33,12 @@ type SeasonEpisodeGroup = {
   watchedCount: number
 }
 
+const configuredApiBaseUrl = String(import.meta.env.VITE_API_BASE_URL ?? '').trim()
+const apiBaseUrl = configuredApiBaseUrl || (import.meta.env.DEV ? '/api' : '')
+const hasApi = Boolean(apiBaseUrl)
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
+  baseURL: apiBaseUrl,
   headers: { 'Content-Type': 'application/json' },
 })
 
@@ -273,6 +277,8 @@ function App() {
   }, [seasonGroups])
 
   const fetchTracked = async () => {
+    if (!hasApi) return
+
     try {
       setLoading(true)
       const response = await api.get<TrackedSeries[]>('/series/tracked')
@@ -286,6 +292,11 @@ function App() {
 
   const searchSeries = async () => {
     if (!query.trim()) return
+    if (!hasApi) {
+      setError('API TMDb não configurada neste ambiente. Configure VITE_API_BASE_URL na Vercel.')
+      return
+    }
+
     try {
       setLoading(true)
       const response = await api.get<SearchResult[]>('/series', { params: { query } })
@@ -298,6 +309,11 @@ function App() {
   }
 
   const addSeries = async (tmdb_id: number) => {
+    if (!hasApi) {
+      setError('API TMDb não configurada neste ambiente. Configure VITE_API_BASE_URL na Vercel.')
+      return
+    }
+
     try {
       setLoading(true)
       await api.post('/series', { tmdb_id })
@@ -318,22 +334,28 @@ function App() {
   }
 
   const fetchSeriesEpisodes = async (seriesId: number) => {
+    const series = tracked.find((item) => item.id === seriesId)
+    const cachedEpisodes = series ? episodeCache[String(series.tmdb_id)] : undefined
+
+    if (!hasApi) {
+      if (cachedEpisodes) {
+        setEpisodes(applyWatchedRecords(cachedEpisodes, cloudWatchedRecords))
+      }
+      return
+    }
+
     try {
       const response = await api.get<EpisodeDetail[]>(`/series/${seriesId}/episodes`)
       const nextEpisodes = applyWatchedRecords(response.data, cloudWatchedRecords)
       setEpisodes(nextEpisodes)
 
-      const series = tracked.find((item) => item.id === seriesId)
       if (series) {
         setEpisodeCache((current) => ({
           ...current,
           [String(series.tmdb_id)]: nextEpisodes,
-        }))
+      }))
       }
     } catch (err) {
-      const series = tracked.find((item) => item.id === seriesId)
-      const cachedEpisodes = series ? episodeCache[String(series.tmdb_id)] : undefined
-
       if (cachedEpisodes) {
         setEpisodes(applyWatchedRecords(cachedEpisodes, cloudWatchedRecords))
         return
@@ -346,7 +368,9 @@ function App() {
   const toggleEpisodeWatch = async (episode: EpisodeDetail) => {
     try {
       if (episode.watched) {
-        await api.delete(`/watch/episodes/${episode.id}`).catch(() => null)
+        if (hasApi) {
+          await api.delete(`/watch/episodes/${episode.id}`).catch(() => null)
+        }
         if (auth.user) {
           await deleteCloudWatchedEpisode(auth.user.uid, episode)
           setCloudWatchedRecords((current) => {
@@ -356,7 +380,9 @@ function App() {
           })
         }
       } else {
-        await api.patch(`/watch/episodes/${episode.id}`, { watched: true, progress_percent: 100 }).catch(() => null)
+        if (hasApi) {
+          await api.patch(`/watch/episodes/${episode.id}`, { watched: true, progress_percent: 100 }).catch(() => null)
+        }
         if (auth.user && selectedSeries) {
           await saveCloudWatchedEpisode(auth.user.uid, selectedSeries, episode)
           setCloudWatchedRecords((current) => {
@@ -379,7 +405,9 @@ function App() {
       }
       if (selectedSeries) {
         await fetchSeriesEpisodes(selectedSeries.id)
-        await fetchTracked()
+        if (hasApi) {
+          await fetchTracked()
+        }
       }
     } catch (err) {
       setError('Erro ao atualizar episódio')
@@ -409,6 +437,12 @@ function App() {
   }
 
   const fetchCalendar = async () => {
+    if (!hasApi) {
+      setCalendarEvents([])
+      setNewEpisodes([])
+      return
+    }
+
     const today = new Date()
     const end = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000)
     const startDate = today.toISOString().slice(0, 10)
@@ -427,6 +461,17 @@ function App() {
   }
 
   const fetchStats = async () => {
+    if (!hasApi) {
+      setStats({
+        overview: null,
+        genres: [],
+        actors: [],
+        years: [],
+        topSeries: [],
+      })
+      return
+    }
+
     try {
       const [overviewRes, genresRes, actorsRes, yearsRes, topSeriesRes] = await Promise.all([
         api.get<OverviewStats>('/stats/overview'),
