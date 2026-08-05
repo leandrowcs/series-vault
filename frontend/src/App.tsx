@@ -117,6 +117,19 @@ const applyWatchedRecords = (items: EpisodeDetail[], watchedRecords: Map<string,
     }
   })
 
+const normalizeTrackedSeries = (series: Partial<TrackedSeries> & { name?: string; original_name?: string }): TrackedSeries => ({
+  id: Number(series.id ?? series.tmdb_id),
+  tmdb_id: Number(series.tmdb_id ?? series.id),
+  title: series.title ?? series.name ?? series.original_name ?? '',
+  overview: series.overview,
+  poster_path: series.poster_path,
+  completed_percent: Number(series.completed_percent ?? 0),
+  number_of_seasons: series.number_of_seasons,
+  number_of_episodes: series.number_of_episodes,
+  status: series.status,
+  last_synced_at: series.last_synced_at ?? new Date().toISOString(),
+})
+
 function App() {
   const auth = useCloudAuth()
   const drive = useGoogleDriveBackup(auth.driveAccessToken)
@@ -316,11 +329,9 @@ function App() {
 
     try {
       setLoading(true)
-      await api.post('/series', { tmdb_id })
-      const trackedResponse = await api.get<TrackedSeries[]>('/series/tracked')
-      setTracked((current) => mergeTrackedSeries(trackedResponse.data, current))
-
-      const addedSeries = trackedResponse.data.find((series) => series.tmdb_id === tmdb_id)
+      const response = await api.post<TrackedSeries>('/series', { tmdb_id })
+      const addedSeries = normalizeTrackedSeries(response.data)
+      setTracked((current) => mergeTrackedSeries(current, [addedSeries]))
       if (auth.user && addedSeries) {
         await saveCloudTrackedSeries(auth.user.uid, addedSeries)
       }

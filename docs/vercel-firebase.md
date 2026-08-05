@@ -25,7 +25,8 @@ Output Directory: dist
 Set these environment variables in Vercel:
 
 ```bash
-VITE_API_BASE_URL=https://your-api-host.example.com/api
+TMDB_API_KEY=...
+VITE_API_BASE_URL=/api
 VITE_FIREBASE_API_KEY=...
 VITE_FIREBASE_AUTH_DOMAIN=...
 VITE_FIREBASE_PROJECT_ID=...
@@ -35,6 +36,22 @@ VITE_FIREBASE_APP_ID=...
 ```
 
 For local development, `VITE_API_BASE_URL` can stay empty or `/api`; Vite proxies `/api` to the local FastAPI server.
+
+## Public API on Vercel
+
+The root `api/` directory contains Vercel Functions that proxy TMDb without exposing your TMDb key to the browser:
+
+- `GET /api/series?query=...`
+- `POST /api/series` with `{ "tmdb_id": 1396 }`
+- `GET /api/series/{tmdbId}/episodes`
+
+The following compatibility endpoints return empty/default values while Firestore owns user data:
+
+- `GET /api/series/tracked`
+- `GET /api/calendar`
+- `GET /api/calendar/new-episodes`
+- `GET /api/stats/*`
+- `PATCH|DELETE /api/watch/episodes/{episodeId}`
 
 ## Firebase setup
 
