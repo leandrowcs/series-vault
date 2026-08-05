@@ -34,7 +34,7 @@ type SeasonEpisodeGroup = {
 }
 
 const configuredApiBaseUrl = String(import.meta.env.VITE_API_BASE_URL ?? '').trim()
-const apiBaseUrl = configuredApiBaseUrl || (import.meta.env.DEV ? '/api' : '')
+const apiBaseUrl = configuredApiBaseUrl || '/api'
 const hasApi = Boolean(apiBaseUrl)
 
 const api = axios.create({
