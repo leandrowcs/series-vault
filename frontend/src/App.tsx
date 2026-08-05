@@ -117,6 +117,41 @@ const applyWatchedRecords = (items: EpisodeDetail[], watchedRecords: Map<string,
     }
   })
 
+const makeWatchedEpisodeRecord = (series: TrackedSeries, episode: EpisodeDetail): WatchedEpisodeRecord => ({
+  episode_key: getEpisodeKey(episode),
+  episode_id: episode.id,
+  tmdb_episode_id: episode.tmdb_episode_id,
+  series_tmdb_id: series.tmdb_id,
+  watched_at: new Date().toISOString(),
+  progress_percent: 100,
+  runtime_minutes: episode.runtime,
+  title: episode.title,
+  season_number: episode.season_number,
+  episode_number: episode.episode_number,
+})
+
+const updateSeriesCompletion = (
+  series: TrackedSeries,
+  watchedRecords: Map<string, WatchedEpisodeRecord>,
+  episodeCache: Record<string, EpisodeDetail[]>,
+): TrackedSeries => {
+  const cachedEpisodes = episodeCache[String(series.tmdb_id)]
+  const totalEpisodes = cachedEpisodes?.length || series.number_of_episodes || 0
+
+  if (!totalEpisodes) return series
+
+  const watchedCount = Array.from(watchedRecords.values()).filter((record) => record.series_tmdb_id === series.tmdb_id).length
+  const completedPercent = Math.min(100, Math.round((watchedCount / totalEpisodes) * 100))
+
+  if (series.completed_percent === completedPercent) return series
+
+  return {
+    ...series,
+    completed_percent: completedPercent,
+    last_synced_at: new Date().toISOString(),
+  }
+}
+
 const normalizeTrackedSeries = (series: Partial<TrackedSeries> & { name?: string; original_name?: string }): TrackedSeries => ({
   id: Number(series.id ?? series.tmdb_id),
   tmdb_id: Number(series.tmdb_id ?? series.id),
@@ -242,11 +277,29 @@ function App() {
       setExpandedSeasons(new Set())
       fetchSeriesEpisodes(selectedSeries.id)
     }
-  }, [selectedSeries])
+  }, [selectedSeries?.id])
 
   useEffect(() => {
     setEpisodes((current) => applyWatchedRecords(current, cloudWatchedRecords))
   }, [cloudWatchedRecords])
+
+  useEffect(() => {
+    setTracked((current) => {
+      let changed = false
+      const next = current.map((series) => {
+        const updatedSeries = updateSeriesCompletion(series, cloudWatchedRecords, episodeCache)
+        changed ||= updatedSeries !== series
+        return updatedSeries
+      })
+
+      return changed ? next : current
+    })
+
+    setSelectedSeries((current) => {
+      if (!current) return current
+      return updateSeriesCompletion(current, cloudWatchedRecords, episodeCache)
+    })
+  }, [cloudWatchedRecords, episodeCache])
 
   const seasonGroups = useMemo<SeasonEpisodeGroup[]>(() => {
     const groups = new Map<number, EpisodeDetail[]>()
@@ -377,18 +430,41 @@ function App() {
   }
 
   const toggleEpisodeWatch = async (episode: EpisodeDetail) => {
+    if (!selectedSeries) return
+
+    const shouldMarkWatched = !episode.watched
+    const nextWatchedRecords = new Map(cloudWatchedRecords)
+
+    if (shouldMarkWatched) {
+      nextWatchedRecords.set(getEpisodeKey(episode), makeWatchedEpisodeRecord(selectedSeries, episode))
+    } else {
+      nextWatchedRecords.delete(getEpisodeKey(episode))
+    }
+
+    const nextEpisodes = episodes.map((item) =>
+      getEpisodeKey(item) === getEpisodeKey(episode)
+        ? { ...item, watched: shouldMarkWatched, progress_percent: shouldMarkWatched ? 100 : 0 }
+        : item,
+    )
+    const nextEpisodeCache = {
+      ...episodeCache,
+      [String(selectedSeries.tmdb_id)]: nextEpisodes,
+    }
+    const nextSelectedSeries = updateSeriesCompletion(selectedSeries, nextWatchedRecords, nextEpisodeCache)
+
+    setEpisodes(nextEpisodes)
+    setEpisodeCache(nextEpisodeCache)
+    setCloudWatchedRecords(nextWatchedRecords)
+    setSelectedSeries(nextSelectedSeries)
+    setTracked((current) => current.map((series) => (series.tmdb_id === nextSelectedSeries.tmdb_id ? nextSelectedSeries : series)))
+
     try {
-      if (episode.watched) {
+      if (!shouldMarkWatched) {
         if (hasApi) {
           await api.delete(`/watch/episodes/${episode.id}`).catch(() => null)
         }
         if (auth.user) {
           await deleteCloudWatchedEpisode(auth.user.uid, episode)
-          setCloudWatchedRecords((current) => {
-            const next = new Map(current)
-            next.delete(getEpisodeKey(episode))
-            return next
-          })
         }
       } else {
         if (hasApi) {
@@ -396,29 +472,10 @@ function App() {
         }
         if (auth.user && selectedSeries) {
           await saveCloudWatchedEpisode(auth.user.uid, selectedSeries, episode)
-          setCloudWatchedRecords((current) => {
-            const next = new Map(current)
-            next.set(getEpisodeKey(episode), {
-              episode_key: getEpisodeKey(episode),
-              episode_id: episode.id,
-              tmdb_episode_id: episode.tmdb_episode_id,
-              series_tmdb_id: selectedSeries.tmdb_id,
-              watched_at: new Date().toISOString(),
-              progress_percent: 100,
-              runtime_minutes: episode.runtime,
-              title: episode.title,
-              season_number: episode.season_number,
-              episode_number: episode.episode_number,
-            })
-            return next
-          })
         }
       }
-      if (selectedSeries) {
-        await fetchSeriesEpisodes(selectedSeries.id)
-        if (hasApi) {
-          await fetchTracked()
-        }
+      if (auth.user) {
+        await saveCloudTrackedSeries(auth.user.uid, nextSelectedSeries)
       }
     } catch (err) {
       setError('Erro ao atualizar episódio')
