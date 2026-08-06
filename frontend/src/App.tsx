@@ -818,8 +818,8 @@ function App() {
         {activeTab !== "tracked" && (
           <header className="home-header">
             <div className="brand-mark" aria-label="Series Vault">
-              <span>Series</span>
-              <strong>Vault</strong>
+              <span className="series">Series</span>
+              <strong className="vault">Vault</strong>
             </div>
             {activeTab === "home" && auth.isConfigured && (
               <div className="cloud-auth">

@@ -50,12 +50,41 @@
   letter-spacing: 4px;
   line-height: 1.05;
   text-transform: uppercase;
+  filter: drop-shadow(0 0 12px rgba(124,77,255,.35));
 }
 
 .brand-mark strong {
   color: var(--purple-light);
-  font-size: 1.1rem;
+  font-size: 22px;
   letter-spacing: 4px;
+}
+
+.series{
+    font-size:20px;
+    font-weight:800;
+    letter-spacing:4px;
+    color:#F4F4F5;
+    text-shadow:
+        0 2px 8px rgba(255,255,255,.08);
+}
+
+.vault{
+    font-size:22px;
+    font-weight:900;
+    letter-spacing:4px;
+
+    background: linear-gradient(
+      180deg,
+      #CFA8FF 0%,
+      #A855F7 45%,
+      #7C3AED 100%
+    );
+
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
+
+    text-shadow:
+        0 0 12px rgba(124,77,255,.35);
 }
 
 .icon-button {
@@ -804,6 +833,7 @@
 .bottom-nav-item.active {
   color: var(--purple-light);
   background: linear-gradient(180deg, rgba(124, 77, 255, 0.2), transparent);
+  border-radius: 18px;
 }
 
 .tmdb-attribution {
