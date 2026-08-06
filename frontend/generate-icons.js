@@ -32,10 +32,10 @@ const baseSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <circle cx="256" cy="256" r="200" fill="none" stroke="rgba(124, 77, 255, 0.15)" stroke-width="20" opacity="0.3"/>
   
   <!-- Letra S (Series) -->
-  <text x="160" y="320" font-size="180" font-weight="800" font-family="Arial, sans-serif" fill="#F4F4F5" letter-spacing="4" filter="url(#glow)" text-anchor="middle">S</text>
+  <text x="180" y="300" font-size="210" font-weight="800" font-family="Arial, sans-serif" fill="#F4F4F5" letter-spacing="4" filter="url(#glow)" text-anchor="middle">S</text>
   
   <!-- Letra V (Vault) -->
-  <text x="340" y="320" font-size="180" font-weight="900" font-family="Arial, sans-serif" fill="url(#vaultGradient)" letter-spacing="4" filter="url(#glow)" text-anchor="middle">V</text>
+  <text x="330" y="380" font-size="210" font-weight="900" font-family="Arial, sans-serif" fill="url(#vaultGradient)" letter-spacing="4" filter="url(#glow)" text-anchor="middle">V</text>
 </svg>`;
 
 // Ícone maskable (simplificado para suporte Android/iOS)
@@ -52,10 +52,10 @@ const maskableSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 51
   <rect width="512" height="512" fill="#101722"/>
   
   <!-- Letra S (Series) -->
-  <text x="140" y="340" font-size="200" font-weight="800" font-family="Arial, sans-serif" fill="#F4F4F5" letter-spacing="8" text-anchor="middle">S</text>
+  <text x="162" y="318" font-size="222" font-weight="800" font-family="Arial, sans-serif" fill="#F4F4F5" letter-spacing="8" text-anchor="middle">S</text>
   
   <!-- Letra V (Vault) -->
-  <text x="360" y="340" font-size="200" font-weight="900" font-family="Arial, sans-serif" fill="url(#vaultGradient2)" letter-spacing="8" text-anchor="middle">V</text>
+  <text x="338" y="368" font-size="222" font-weight="900" font-family="Arial, sans-serif" fill="url(#vaultGradient2)" letter-spacing="8" text-anchor="middle">V</text>
 </svg>`;
 
 async function generateIcons() {
