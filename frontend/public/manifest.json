@@ -1,30 +1,30 @@
 {
-  "name": "Series Vault",
+  "name": "Series Vault - Rastreie Suas Séries",
   "short_name": "Vault",
-  "description": "Aplicativo para rastrear suas séries favoritas",
+  "description": "Rastreie suas séries favoritas, acompanhe episódios e veja suas estatísticas",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "orientation": "portrait-primary",
+  "orientation": "portrait",
   "theme_color": "#1a1a1a",
-  "background_color": "#ffffff",
+  "background_color": "#0d1117",
   "categories": ["entertainment"],
-  "screenshots": [
-    {
-      "src": "/icon-192x192.png",
-      "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "/icon-512x512.png",
-      "sizes": "512x512",
-      "type": "image/png"
-    }
-  ],
   "icons": [
     {
+      "src": "/icon-128x128.png",
+      "sizes": "128x128",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
       "src": "/icon-192x192.png",
       "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-256x256.png",
+      "sizes": "256x256",
       "type": "image/png",
       "purpose": "any"
     },
@@ -33,10 +33,22 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-128.png",
+      "sizes": "128x128",
+      "type": "image/png",
+      "purpose": "maskable"
     },
     {
       "src": "/icon-maskable-192.png",
       "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon-maskable-256.png",
+      "sizes": "256x256",
       "type": "image/png",
       "purpose": "maskable"
     },

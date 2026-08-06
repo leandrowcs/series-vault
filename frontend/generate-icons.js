@@ -59,40 +59,32 @@ const maskableSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 51
 </svg>`;
 
 async function generateIcons() {
-  console.log('Gerando ícones PNG...');
+  console.log('Gerando ícones PNG em múltiplos tamanhos...');
+  
+  const sizes = [128, 192, 256, 512];
   
   try {
-    // Gerar 192x192
-    await sharp(Buffer.from(baseSvg))
-      .resize(192, 192)
-      .png()
-      .toFile(path.join(publicDir, 'icon-192x192.png'));
-    console.log('✓ icon-192x192.png criado');
+    // Gerar versões normais
+    for (const size of sizes) {
+      await sharp(Buffer.from(baseSvg))
+        .resize(size, size)
+        .png()
+        .toFile(path.join(publicDir, `icon-${size}x${size}.png`));
+      console.log(`✓ icon-${size}x${size}.png criado`);
+    }
     
-    // Gerar 512x512
-    await sharp(Buffer.from(baseSvg))
-      .resize(512, 512)
-      .png()
-      .toFile(path.join(publicDir, 'icon-512x512.png'));
-    console.log('✓ icon-512x512.png criado');
+    // Gerar versões maskable
+    for (const size of sizes) {
+      await sharp(Buffer.from(maskableSvg))
+        .resize(size, size)
+        .png()
+        .toFile(path.join(publicDir, `icon-maskable-${size}.png`));
+      console.log(`✓ icon-maskable-${size}.png criado`);
+    }
     
-    // Gerar maskable 192x192
-    await sharp(Buffer.from(maskableSvg))
-      .resize(192, 192)
-      .png()
-      .toFile(path.join(publicDir, 'icon-maskable-192.png'));
-    console.log('✓ icon-maskable-192.png criado');
-    
-    // Gerar maskable 512x512
-    await sharp(Buffer.from(maskableSvg))
-      .resize(512, 512)
-      .png()
-      .toFile(path.join(publicDir, 'icon-maskable-512.png'));
-    console.log('✓ icon-maskable-512.png criado');
-    
-    console.log('Ícones gerados com sucesso!');
+    console.log('✅ Todos os ícones gerados com sucesso!');
   } catch (error) {
-    console.error('Erro ao gerar ícones:', error);
+    console.error('❌ Erro ao gerar ícones:', error);
     process.exit(1);
   }
 }

@@ -11,6 +11,12 @@ export default defineConfig({
         },
       },
     },
+    // Otimizações para melhor performance
+    minify: 'esbuild',
+    cssCodeSplit: true,
+  },
+  esbuild: {
+    drop: ['console'],
   },
   server: {
     port: 3000,
