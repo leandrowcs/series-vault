@@ -46,16 +46,25 @@ const maskableSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 51
       <stop offset="45%" style="stop-color:#A855F7;stop-opacity:1" />
       <stop offset="100%" style="stop-color:#7C3AED;stop-opacity:1" />
     </linearGradient>
+    <filter id="maskableGlow">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
   </defs>
   
-  <!-- Fundo -->
-  <rect width="512" height="512" fill="#101722"/>
+  <!-- Fundo com area segura para recortes maskable -->
+  <rect width="512" height="512" fill="#0d1117"/>
+  <circle cx="256" cy="256" r="205" fill="#101722" stroke="rgba(169, 112, 255, 0.35)" stroke-width="2"/>
+  <circle cx="256" cy="256" r="185" fill="none" stroke="rgba(124, 77, 255, 0.15)" stroke-width="18" opacity="0.3"/>
   
   <!-- Letra S (Series) -->
-  <text x="162" y="318" font-size="222" font-weight="800" font-family="Arial, sans-serif" fill="#F4F4F5" letter-spacing="8" text-anchor="middle">S</text>
+  <text x="178" y="300" font-size="205" font-weight="800" font-family="Arial, sans-serif" fill="#F4F4F5" letter-spacing="4" filter="url(#maskableGlow)" text-anchor="middle">S</text>
   
   <!-- Letra V (Vault) -->
-  <text x="338" y="368" font-size="222" font-weight="900" font-family="Arial, sans-serif" fill="url(#vaultGradient2)" letter-spacing="8" text-anchor="middle">V</text>
+  <text x="322" y="348" font-size="205" font-weight="900" font-family="Arial, sans-serif" fill="url(#vaultGradient2)" letter-spacing="4" filter="url(#maskableGlow)" text-anchor="middle">V</text>
 </svg>`;
 
 async function generateIcons() {
