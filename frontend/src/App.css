@@ -47,7 +47,7 @@
   color: var(--text);
   font-size: 0.98rem;
   font-weight: 800;
-  letter-spacing: 5px;
+  letter-spacing: 4px;
   line-height: 1.05;
   text-transform: uppercase;
 }
@@ -55,7 +55,7 @@
 .brand-mark strong {
   color: var(--purple-light);
   font-size: 1.1rem;
-  letter-spacing: 2px;
+  letter-spacing: 4px;
 }
 
 .icon-button {
