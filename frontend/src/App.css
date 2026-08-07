@@ -16,7 +16,7 @@
 
 .app-shell {
   position: relative;
-  width: min(100%, 430px);
+  width: min(100%, 480px);
   min-height: 100dvh;
   margin: 0 auto;
   padding: calc(env(safe-area-inset-top, 0px) + 28px) 18px 112px;

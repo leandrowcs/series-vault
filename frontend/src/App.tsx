@@ -745,12 +745,43 @@ function App() {
     [cloudWatchedRecords],
   );
 
+  const watchedSeriesIds = useMemo(
+    () => new Set(watchedRecords.map((record) => record.series_tmdb_id)),
+    [watchedRecords],
+  );
+
+  const episodeRuntimeByKey = useMemo(() => {
+    const runtimeByKey = new Map<string, number>();
+
+    Object.values(episodeCache).forEach((seriesEpisodes) => {
+      seriesEpisodes.forEach((episode) => {
+        if (episode.runtime) {
+          runtimeByKey.set(getEpisodeKey(episode), episode.runtime);
+        }
+      });
+    });
+
+    return runtimeByKey;
+  }, [episodeCache]);
+
+  const localRuntimeMinutes = watchedRecords.reduce(
+    (total, record) =>
+      total +
+      (record.runtime_minutes ??
+        episodeRuntimeByKey.get(record.episode_key) ??
+        0),
+    0,
+  );
+
+  const totalWatchedEpisodes =
+    watchedRecords.length > 0
+      ? watchedRecords.length
+      : (stats.overview?.total_watched_episodes ?? 0);
+
   const totalRuntimeMinutes =
-    stats.overview?.total_runtime_minutes ??
-    watchedRecords.reduce(
-      (total, record) => total + (record.runtime_minutes ?? 0),
-      0,
-    );
+    localRuntimeMinutes > 0
+      ? localRuntimeMinutes
+      : (stats.overview?.total_runtime_minutes ?? 0);
 
   const activeWatchDays = new Set(
     watchedRecords.map((record) => record.watched_at.slice(0, 10)),
@@ -759,12 +790,17 @@ function App() {
   const continueWatching = useMemo(
     () =>
       tracked
-        .filter((series) => series.completed_percent < 100)
+        .filter(
+          (series) =>
+            (watchedSeriesIds.has(series.tmdb_id) ||
+              series.completed_percent > 0) &&
+            series.completed_percent < 100,
+        )
         .sort(
           (seriesA, seriesB) =>
             seriesB.completed_percent - seriesA.completed_percent,
         ),
-    [tracked],
+    [tracked, watchedSeriesIds],
   );
 
   const getLatestEpisodeLabel = (series: TrackedSeries) => {
@@ -798,9 +834,7 @@ function App() {
     },
     {
       label: "Episódios assistidos",
-      value: String(
-        stats.overview?.total_watched_episodes ?? watchedRecords.length,
-      ),
+      value: String(totalWatchedEpisodes),
       icon: "tv",
       tone: "purple",
     },
@@ -1410,14 +1444,18 @@ function App() {
             <div className="stat-card">
               <h3>Visão geral</h3>
               <p>
-                {stats.overview
-                  ? `${stats.overview.total_watched_episodes} episódios assistidos`
-                  : "..."}
+                {isStatsLoading &&
+                !stats.overview &&
+                watchedRecords.length === 0
+                  ? "..."
+                  : `${totalWatchedEpisodes} episódios assistidos`}
               </p>
               <p>
-                {stats.overview
-                  ? `${stats.overview.total_runtime_minutes} minutos no total`
-                  : ""}
+                {isStatsLoading &&
+                !stats.overview &&
+                watchedRecords.length === 0
+                  ? ""
+                  : `${totalRuntimeMinutes} minutos no total`}
               </p>
             </div>
 
