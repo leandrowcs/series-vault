@@ -1,0 +1,158 @@
+/* Home Header - Improved spacing */
+.home-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  margin-bottom: 4px;
+}
+
+/* Continue Watching - Horizontal scroll like Trakt */
+.continue-watching-scroll {
+  display: grid;
+  grid-auto-columns: minmax(140px, 1fr);
+  grid-auto-flow: column;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 0 0 8px;
+  margin: 0 -18px;
+  padding-left: 18px;
+  padding-right: 18px;
+  scrollbar-width: none;
+  scroll-snap-type: x mandatory;
+}
+
+.continue-watching-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.continue-card {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  overflow: hidden;
+  scroll-snap-align: start;
+}
+
+.continue-poster-wrapper {
+  position: relative;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.continue-poster {
+  width: 100%;
+  aspect-ratio: 5 / 7;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.3s ease;
+}
+
+.continue-card:hover .continue-poster {
+  transform: scale(1.05);
+}
+
+.continue-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.continue-card:hover .continue-overlay {
+  opacity: 1;
+}
+
+.continue-info {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.continue-info strong {
+  font-size: 0.8rem;
+  line-height: 1.15;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.continue-info small {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.continue-info .progress-track {
+  height: 3px;
+  background: rgba(169, 112, 255, 0.2);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 2px;
+}
+
+.progress-text {
+  color: var(--purple-light);
+  font-size: 0.65rem;
+  font-weight: 800;
+  display: block;
+  margin-top: 3px;
+}
+
+/* Skeleton Loader */
+.skeleton {
+  background: linear-gradient(90deg, 
+    var(--surface-strong) 0%, 
+    var(--surface) 50%, 
+    var(--surface-strong) 100%);
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s infinite;
+}
+
+@keyframes skeleton-loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.skeleton-card {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+}
+
+.skeleton-poster {
+  width: 100%;
+  aspect-ratio: 5 / 7;
+  border-radius: 8px;
+  skeleton: true;
+}
+
+.skeleton-text {
+  height: 12px;
+  border-radius: 4px;
+  skeleton: true;
+}
+
+.skeleton-text.long {
+  width: 85%;
+}

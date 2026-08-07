@@ -241,6 +241,9 @@ function App() {
     topSeries: [] as TopSeriesStat[],
   });
   const [loading, setLoading] = useState(false);
+  const [isTrackedLoading, setIsTrackedLoading] = useState(false);
+  const [isCalendarLoading, setIsCalendarLoading] = useState(false);
+  const [isStatsLoading, setIsStatsLoading] = useState(false);
   const [error, setError] = useState("");
   const [syncStatus, setSyncStatus] = useState<
     "idle" | "syncing" | "synced" | "error"
@@ -444,16 +447,18 @@ function App() {
 
     try {
       setLoading(true);
+      setIsTrackedLoading(true);
       const response = await api.get<TrackedSeries[]>("/series/tracked");
       const trackedSeries = getArrayResponse<TrackedSeries>(
         response.data,
         "séries acompanhadas",
       );
       setTracked((current) => mergeTrackedSeries(trackedSeries, current));
-      setLoading(false);
     } catch (err) {
-      setLoading(false);
       setError(getApiErrorMessage(err, "Falha ao carregar séries"));
+    } finally {
+      setLoading(false);
+      setIsTrackedLoading(false);
     }
   };
 
@@ -659,6 +664,7 @@ function App() {
     const endDate = end.toISOString().slice(0, 10);
 
     try {
+      setIsCalendarLoading(true);
       const [calendarRes, newRes] = await Promise.all([
         api.get<CalendarEvent[]>("/calendar", {
           params: { start: startDate, end: endDate },
@@ -678,6 +684,8 @@ function App() {
       );
     } catch (err) {
       setError(getApiErrorMessage(err, "Falha ao carregar calendário"));
+    } finally {
+      setIsCalendarLoading(false);
     }
   };
 
@@ -694,6 +702,7 @@ function App() {
     }
 
     try {
+      setIsStatsLoading(true);
       const [overviewRes, genresRes, actorsRes, yearsRes, topSeriesRes] =
         await Promise.all([
           api.get<OverviewStats>("/stats/overview"),
@@ -714,6 +723,8 @@ function App() {
       });
     } catch (err) {
       setError(getApiErrorMessage(err, "Falha ao carregar estatísticas"));
+    } finally {
+      setIsStatsLoading(false);
     }
   };
 
@@ -752,8 +763,7 @@ function App() {
         .sort(
           (seriesA, seriesB) =>
             seriesB.completed_percent - seriesA.completed_percent,
-        )
-        .slice(0, 3),
+        ),
     [tracked],
   );
 
@@ -772,6 +782,12 @@ function App() {
   };
 
   const upcomingEpisode = calendarEvents[0] ?? newEpisodes[0];
+  const isDashboardLoading =
+    (isTrackedLoading && tracked.length === 0) ||
+    (isStatsLoading && !stats.overview);
+  const isContinueWatchingLoading =
+    isTrackedLoading && continueWatching.length === 0;
+  const isUpcomingEpisodeLoading = isCalendarLoading && !upcomingEpisode;
 
   const dashboardMetrics: DashboardMetric[] = [
     {
@@ -902,19 +918,36 @@ function App() {
               <p>Pronto para mais uma maratona?</p>
             </div>
 
-            <div className="metric-grid">
-              {dashboardMetrics.map((metric) => (
-                <div key={metric.label} className="metric-card">
-                  <span className={`metric-icon metric-icon-${metric.tone}`}>
-                    <span
-                      className={`vault-icon vault-icon-${metric.icon}`}
+            <div
+              className="metric-grid"
+              aria-busy={isDashboardLoading ? "true" : "false"}
+            >
+              {isDashboardLoading
+                ? Array.from({ length: 4 }).map((_, index) => (
+                    <div
+                      key={`metric-skeleton-${index}`}
+                      className="metric-card metric-card-skeleton"
                       aria-hidden="true"
-                    />
-                  </span>
-                  <strong>{metric.value}</strong>
-                  <span>{metric.label}</span>
-                </div>
-              ))}
+                    >
+                      <span className="metric-icon skeleton" />
+                      <span className="skeleton skeleton-text skeleton-value" />
+                      <span className="skeleton skeleton-text skeleton-label" />
+                    </div>
+                  ))
+                : dashboardMetrics.map((metric) => (
+                    <div key={metric.label} className="metric-card">
+                      <span
+                        className={`metric-icon metric-icon-${metric.tone}`}
+                      >
+                        <span
+                          className={`vault-icon vault-icon-${metric.icon}`}
+                          aria-hidden="true"
+                        />
+                      </span>
+                      <strong>{metric.value}</strong>
+                      <span>{metric.label}</span>
+                    </div>
+                  ))}
             </div>
 
             <section className="home-section">
@@ -925,30 +958,59 @@ function App() {
                 </button>
               </div>
 
-              <div className="watch-list">
-                {continueWatching.length === 0 ? (
-                  <p className="empty-state">
-                    Adicione uma série para montar sua fila.
-                  </p>
-                ) : (
-                  continueWatching.map((series) => (
+              {isContinueWatchingLoading ? (
+                <div
+                  className="continue-watching-scroll"
+                  aria-label="Carregando séries para continuar assistindo"
+                >
+                  {Array.from({ length: 5 }).map((_, index) => (
+                    <div
+                      key={`continue-skeleton-${index}`}
+                      className="continue-card continue-card-skeleton"
+                      aria-hidden="true"
+                    >
+                      <span className="continue-poster-frame skeleton" />
+                      <span className="continue-copy">
+                        <span className="skeleton skeleton-text skeleton-title" />
+                        <span className="skeleton skeleton-text skeleton-subtitle" />
+                        <span className="skeleton skeleton-text skeleton-progress" />
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : continueWatching.length === 0 ? (
+                <p className="empty-state">
+                  Adicione uma série para montar sua fila.
+                </p>
+              ) : (
+                <div className="continue-watching-scroll">
+                  {continueWatching.map((series) => (
                     <button
                       key={series.id}
                       type="button"
-                      className="watch-row"
+                      className="continue-card"
                       onClick={() => {
                         setSelectedSeries(series);
                         setActiveTab("tracked");
                       }}
                     >
-                      <MediaImage
-                        path={series.poster_path}
-                        alt={`Capa de ${series.title}`}
-                        className="watch-poster"
-                        fallback="Sem capa"
-                        size="w185"
-                      />
-                      <span className="watch-copy">
+                      <span className="continue-poster-frame">
+                        <MediaImage
+                          path={series.poster_path}
+                          alt={`Capa de ${series.title}`}
+                          className="continue-poster"
+                          fallback="Sem capa"
+                          size="w342"
+                        />
+                        <span className="continue-card-shade" />
+                        <span className="continue-percent">
+                          {series.completed_percent}%
+                        </span>
+                        <span className="continue-play-button" aria-hidden="true">
+                          <span className="vault-icon vault-icon-play" />
+                        </span>
+                      </span>
+                      <span className="continue-copy">
                         <strong>{series.title}</strong>
                         <small>{getLatestEpisodeLabel(series)}</small>
                         <span className="progress-track">
@@ -958,16 +1020,10 @@ function App() {
                           />
                         </span>
                       </span>
-                      <span className="watch-percent">
-                        {series.completed_percent}%
-                      </span>
-                      <span className="play-button" aria-hidden="true">
-                        <span className="vault-icon vault-icon-play" />
-                      </span>
                     </button>
-                  ))
-                )}
-              </div>
+                  ))}
+                </div>
+              )}
             </section>
 
             <section className="home-section">
@@ -978,7 +1034,19 @@ function App() {
                 </button>
               </div>
 
-              {upcomingEpisode ? (
+              {isUpcomingEpisodeLoading ? (
+                <div
+                  className="upcoming-card upcoming-card-skeleton"
+                  aria-hidden="true"
+                >
+                  <span className="upcoming-poster skeleton" />
+                  <span>
+                    <span className="skeleton skeleton-text skeleton-title" />
+                    <span className="skeleton skeleton-text skeleton-subtitle" />
+                    <span className="skeleton skeleton-text skeleton-date" />
+                  </span>
+                </div>
+              ) : upcomingEpisode ? (
                 <button
                   type="button"
                   className="upcoming-card"
@@ -1443,7 +1511,7 @@ function App() {
       </nav>
 
       <footer className="tmdb-attribution">
-        This product uses the TMDB API but is not endorsed or certified by TMDB.
+        This product uses the TMDb API but is not endorsed or certified by TMDb.
       </footer>
 
       {error && <div className="toast">{error}</div>}
