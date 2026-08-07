@@ -207,43 +207,88 @@
 
 .metric-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  max-height: 20dvh;
 }
 
 .metric-card {
   display: grid;
-  justify-items: center;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: center;
+  justify-items: start;
+  column-gap: 8px;
   min-width: 0;
-  min-height: 118px;
-  padding: 13px 8px 12px;
+  min-height: 44px;
+  padding: 8px 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: linear-gradient(180deg, rgba(21, 29, 42, 0.92), rgba(13, 17, 23, 0.76));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
-  text-align: center;
+  text-align: left;
 }
 
 .metric-card strong {
-  margin-top: 10px;
-  font-size: 1.36rem;
-  line-height: 1;
+  min-width: 0;
+  margin-top: 0;
+  font-size: 1rem;
+  line-height: 1.05;
+  white-space: nowrap;
 }
 
 .metric-card > span:last-child {
-  margin-top: 5px;
+  min-width: 0;
+  margin-top: 0;
   color: #d8dbe2;
+  font-size: 0.68rem;
+  font-weight: 800;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+
+.metric-card-wide {
+  grid-column: 1 / -1;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  min-height: 42px;
+}
+
+.metric-card-wide strong {
+  grid-column: 3;
+  grid-row: 1;
+  justify-self: end;
+  font-size: 0.95rem;
+  text-align: right;
+}
+
+.metric-card-wide > span:last-child {
+  grid-column: 2;
+  grid-row: 1;
   font-size: 0.72rem;
-  line-height: 1.15;
+}
+
+.metric-card-skeleton .skeleton-value,
+.metric-card-skeleton .skeleton-label {
+  margin-top: 0;
+}
+
+.metric-card-wide.metric-card-skeleton .skeleton-value {
+  grid-column: 3;
+  grid-row: 1;
+  justify-self: end;
 }
 
 .metric-icon {
   display: grid;
   place-items: center;
-  width: 42px;
+  width: 30px;
   aspect-ratio: 1;
   border-radius: 8px;
   background: rgba(124, 77, 255, 0.12);
+}
+
+.metric-icon .vault-icon {
+  width: 17px;
+  height: 17px;
 }
 
 .metric-icon-cyan {

@@ -41,6 +41,7 @@ type DashboardMetric = {
   label: string;
   value: string;
   icon: string;
+  layout: "compact" | "wide";
   tone: "cyan" | "purple" | "amber" | "green";
 };
 
@@ -95,6 +96,32 @@ const formatDate = (dateString?: string) => {
     month: "2-digit",
     year: "numeric",
   });
+};
+
+const formatWatchDuration = (minutes: number) => {
+  const totalHours = Math.round(minutes / 60);
+  if (totalHours <= 0) return "0 horas";
+
+  const units = [
+    { label: "ano", plural: "anos", hours: 365 * 24 },
+    { label: "mês", plural: "meses", hours: 30 * 24 },
+    { label: "dia", plural: "dias", hours: 24 },
+    { label: "hora", plural: "horas", hours: 1 },
+  ];
+
+  let remainingHours = totalHours;
+  const parts: string[] = [];
+
+  units.forEach((unit) => {
+    const value = Math.floor(remainingHours / unit.hours);
+    if (value === 0) return;
+
+    remainingHours %= unit.hours;
+    parts.push(`${value} ${value === 1 ? unit.label : unit.plural}`);
+  });
+
+  if (parts.length === 1) return parts[0];
+  return `${parts.slice(0, -1).join(", ")} e ${parts[parts.length - 1]}`;
 };
 
 const getApiErrorMessage = (err: unknown, fallback: string) => {
@@ -830,24 +857,28 @@ function App() {
       label: "Séries",
       value: String(tracked.length),
       icon: "play",
+      layout: "compact",
       tone: "cyan",
     },
     {
       label: "Episódios assistidos",
       value: String(totalWatchedEpisodes),
       icon: "tv",
+      layout: "compact",
       tone: "purple",
     },
     {
-      label: "Horas assistidas",
-      value: `${Math.round(totalRuntimeMinutes / 60)}h`,
+      label: "Tempo total assistido",
+      value: formatWatchDuration(totalRuntimeMinutes),
       icon: "clock",
+      layout: "wide",
       tone: "amber",
     },
     {
-      label: "Dias ativos",
+      label: "Dias ativos assistindo",
       value: String(activeWatchDays),
       icon: "calendar",
+      layout: "wide",
       tone: "green",
     },
   ];
@@ -957,19 +988,24 @@ function App() {
               aria-busy={isDashboardLoading ? "true" : "false"}
             >
               {isDashboardLoading
-                ? Array.from({ length: 4 }).map((_, index) => (
-                    <div
-                      key={`metric-skeleton-${index}`}
-                      className="metric-card metric-card-skeleton"
-                      aria-hidden="true"
-                    >
-                      <span className="metric-icon skeleton" />
-                      <span className="skeleton skeleton-text skeleton-value" />
-                      <span className="skeleton skeleton-text skeleton-label" />
-                    </div>
-                  ))
+                ? (["compact", "compact", "wide", "wide"] as const).map(
+                    (layout, index) => (
+                      <div
+                        key={`metric-skeleton-${index}`}
+                        className={`metric-card metric-card-${layout} metric-card-skeleton`}
+                        aria-hidden="true"
+                      >
+                        <span className="metric-icon skeleton" />
+                        <span className="skeleton skeleton-text skeleton-value" />
+                        <span className="skeleton skeleton-text skeleton-label" />
+                      </div>
+                    ),
+                  )
                 : dashboardMetrics.map((metric) => (
-                    <div key={metric.label} className="metric-card">
+                    <div
+                      key={metric.label}
+                      className={`metric-card metric-card-${metric.layout}`}
+                    >
                       <span
                         className={`metric-icon metric-icon-${metric.tone}`}
                       >
