@@ -103,7 +103,21 @@ const getApiErrorMessage = (err: unknown, fallback: string) => {
     if (typeof detail === "string") return detail;
   }
 
+  if (err instanceof Error && err.message) return err.message;
+
   return fallback;
+};
+
+const getArrayResponse = <T,>(data: unknown, resourceName: string): T[] => {
+  if (Array.isArray(data)) return data as T[];
+
+  if (typeof data === "string" && data.trimStart().startsWith("<")) {
+    throw new Error(
+      `A rota /api retornou a página do app em vez de ${resourceName}. Verifique se o deploy da Vercel está usando a raiz do repositório e se TMDB_API_KEY está configurada.`,
+    );
+  }
+
+  throw new Error(`A API retornou um formato inválido para ${resourceName}.`);
 };
 
 const mergeTrackedSeries = (
@@ -431,7 +445,11 @@ function App() {
     try {
       setLoading(true);
       const response = await api.get<TrackedSeries[]>("/series/tracked");
-      setTracked((current) => mergeTrackedSeries(response.data, current));
+      const trackedSeries = getArrayResponse<TrackedSeries>(
+        response.data,
+        "séries acompanhadas",
+      );
+      setTracked((current) => mergeTrackedSeries(trackedSeries, current));
       setLoading(false);
     } catch (err) {
       setLoading(false);
@@ -453,7 +471,7 @@ function App() {
       const response = await api.get<SearchResult[]>("/series", {
         params: { query },
       });
-      setResults(response.data);
+      setResults(getArrayResponse<SearchResult>(response.data, "resultados"));
       setLoading(false);
     } catch (err) {
       setLoading(false);
@@ -503,8 +521,12 @@ function App() {
       const response = await api.get<EpisodeDetail[]>(
         `/series/${seriesId}/episodes`,
       );
-      const nextEpisodes = applyWatchedRecords(
+      const fetchedEpisodes = getArrayResponse<EpisodeDetail>(
         response.data,
+        "episódios",
+      );
+      const nextEpisodes = applyWatchedRecords(
+        fetchedEpisodes,
         cloudWatchedRecords,
       );
       setEpisodes(nextEpisodes);
@@ -645,10 +667,17 @@ function App() {
           params: { since: startDate },
         }),
       ]);
-      setCalendarEvents(calendarRes.data);
-      setNewEpisodes(newRes.data);
+      setCalendarEvents(
+        getArrayResponse<CalendarEvent>(calendarRes.data, "calendário"),
+      );
+      setNewEpisodes(
+        getArrayResponse<CalendarNewEpisode>(
+          newRes.data,
+          "novos episódios",
+        ),
+      );
     } catch (err) {
-      setError("Falha ao carregar calendário");
+      setError(getApiErrorMessage(err, "Falha ao carregar calendário"));
     }
   };
 
@@ -675,13 +704,16 @@ function App() {
         ]);
       setStats({
         overview: overviewRes.data,
-        genres: genresRes.data,
-        actors: actorsRes.data,
-        years: yearsRes.data,
-        topSeries: topSeriesRes.data,
+        genres: getArrayResponse<GenreStat>(genresRes.data, "gêneros"),
+        actors: getArrayResponse<ActorStat>(actorsRes.data, "atores"),
+        years: getArrayResponse<YearStat>(yearsRes.data, "anos"),
+        topSeries: getArrayResponse<TopSeriesStat>(
+          topSeriesRes.data,
+          "ranking de séries",
+        ),
       });
     } catch (err) {
-      setError("Falha ao carregar estatísticas");
+      setError(getApiErrorMessage(err, "Falha ao carregar estatísticas"));
     }
   };
 
