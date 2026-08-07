@@ -868,7 +868,7 @@ function App() {
       tone: "purple",
     },
     {
-      label: "Tempo total assistido",
+      label: "Tempo total assistindo",
       value: formatWatchDuration(totalRuntimeMinutes),
       icon: "clock",
       layout: "wide",
@@ -966,21 +966,28 @@ function App() {
                 )}
               </div>
             )}
-            <button
-              type="button"
-              className="icon-button"
-              aria-label="Notificações"
-            >
-              <span className="vault-icon vault-icon-bell" aria-hidden="true" />
-            </button>
           </header>
         )}
 
         {activeTab === "home" && (
           <section className="home-view">
             <div className="greeting-block">
-              <h1>Boa noite, {auth.user?.name?.split(" ")[0] ?? "Leandro"}!</h1>
-              <p>Pronto para mais uma maratona?</p>
+              <span className="greeting-copy">
+                <h1>
+                  Boa noite, {auth.user?.name?.split(" ")[0] ?? "Leandro"}!
+                </h1>
+                <p>Pronto para mais uma maratona?</p>
+              </span>
+              <button
+                type="button"
+                className="icon-button notification-button"
+                aria-label="Notificações"
+              >
+                <span
+                  className="vault-icon vault-icon-bell"
+                  aria-hidden="true"
+                />
+              </button>
             </div>
 
             <div
