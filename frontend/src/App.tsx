@@ -2116,7 +2116,16 @@ function App() {
             aria-modal="true"
             aria-labelledby="series-modal-title"
           >
-            <div className="series-modal-hero">
+            <div
+              className="series-modal-hero"
+              style={
+                selectedSeries.backdrop_path
+                  ? {
+                      backgroundImage: `linear-gradient(90deg, rgba(6, 10, 9, 0.92), rgba(6, 10, 9, 0.7) 46%, rgba(6, 10, 9, 0.36)), url(${tmdbImageUrl(selectedSeries.backdrop_path, "w500")})`,
+                    }
+                  : undefined
+              }
+            >
               <MediaImage
                 path={selectedSeries.poster_path}
                 alt={`Capa de ${selectedSeries.title}`}
@@ -2125,7 +2134,6 @@ function App() {
                 size="w342"
               />
               <div className="series-modal-title">
-                <span className="chip">{selectedSeries.completed_percent}%</span>
                 <h2 id="series-modal-title">{selectedSeries.title}</h2>
                 <p>{getLibrarySeriesMeta(selectedSeries)}</p>
               </div>

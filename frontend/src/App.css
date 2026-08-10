@@ -970,7 +970,7 @@
   inset: 0;
   z-index: 30;
   display: grid;
-  align-items: end;
+  align-items: start;
   padding: 14px;
   background: rgba(3, 7, 6, 0.78);
   backdrop-filter: blur(16px);
@@ -984,9 +984,9 @@
   margin: 0 auto;
   overflow: hidden;
   border: 1px solid var(--border-strong);
-  border-radius: 14px 14px 0 0;
+  border-radius: 0 0 14px 14px;
   background: rgba(11, 17, 16, 0.98);
-  box-shadow: 0 -24px 80px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
 }
 
 .series-modal-hero {
@@ -1000,6 +1000,8 @@
   background:
     linear-gradient(135deg, rgba(15, 118, 110, 0.32), transparent 58%),
     rgba(16, 25, 24, 0.82);
+  background-position: center;
+  background-size: cover;
 }
 
 .series-modal-poster {
