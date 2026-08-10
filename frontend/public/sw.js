@@ -1,5 +1,5 @@
 // Incrementar versão em cada build para garantir que usuários sempre tenham a versão mais recente
-const CACHE_NAME = 'series-vault-v1';
+const CACHE_NAME = 'series-vault-v2';
 
 // Install: cache apenas o app shell HTML
 self.addEventListener('install', (event) => {
@@ -38,6 +38,17 @@ self.addEventListener('fetch', (event) => {
 
   // Bypass para endpoints de API (/api/)
   if (url.pathname.startsWith('/api/')) return;
+
+  // Manifest e icones precisam sempre vir da rede para evitar arte antiga no PWA.
+  if (
+    url.pathname === '/manifest.json' ||
+    url.pathname === '/sw.js' ||
+    url.pathname.startsWith('/icon') ||
+    url.pathname === '/logo.svg'
+  ) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
 
   // Cache-first para assets estáticos com hash (/assets/)
   // Esses arquivos têm nomes com content-hash, seguro cachear indefinidamente

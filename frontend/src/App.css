@@ -145,6 +145,12 @@
   font-size: 0.88rem;
 }
 
+.greeting-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .cloud-auth {
   justify-self: end;
   display: flex;
@@ -163,6 +169,12 @@
 .notification-button {
   border-color: var(--border);
   background: rgba(16, 25, 24, 0.56);
+}
+
+.install-button {
+  border-color: rgba(20, 160, 133, 0.38);
+  background: rgba(15, 118, 110, 0.18);
+  color: var(--purple-light);
 }
 
 .cloud-avatar {
@@ -1221,6 +1233,32 @@
   height: 2px;
   background: currentColor;
   box-shadow: 6px 3px 0 -1px currentColor;
+}
+
+.vault-icon-install::before {
+  content: "";
+  position: absolute;
+  left: 9px;
+  top: 3px;
+  width: 3px;
+  height: 10px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.vault-icon-install::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 11px;
+  width: 13px;
+  height: 7px;
+  border: 2px solid currentColor;
+  border-top: 0;
+  border-radius: 0 0 3px 3px;
+  background:
+    linear-gradient(45deg, transparent 48%, currentColor 50%, transparent 52%) 3px -7px / 8px 8px no-repeat,
+    linear-gradient(-45deg, transparent 48%, currentColor 50%, transparent 52%) 8px -7px / 8px 8px no-repeat;
 }
 
 .vault-icon-search::before {

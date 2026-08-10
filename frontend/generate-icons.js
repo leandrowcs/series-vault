@@ -7,6 +7,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const publicDir = path.join(__dirname, 'public');
 const iconSvgPath = path.join(publicDir, 'icon.svg');
+const iconPrefix = 'icon-teal-v2';
 
 const baseSvg = fs.readFileSync(iconSvgPath, 'utf8');
 
@@ -59,16 +60,16 @@ async function generateIcons() {
       await sharp(Buffer.from(baseSvg))
         .resize(size, size)
         .png()
-        .toFile(path.join(publicDir, `icon-${size}x${size}.png`));
-      console.log(`✓ icon-${size}x${size}.png criado`);
+        .toFile(path.join(publicDir, `${iconPrefix}-${size}x${size}.png`));
+      console.log(`✓ ${iconPrefix}-${size}x${size}.png criado`);
     }
 
     for (const size of sizes) {
       await sharp(Buffer.from(maskableSvg))
         .resize(size, size)
         .png()
-        .toFile(path.join(publicDir, `icon-maskable-${size}.png`));
-      console.log(`✓ icon-maskable-${size}.png criado`);
+        .toFile(path.join(publicDir, `${iconPrefix}-maskable-${size}.png`));
+      console.log(`✓ ${iconPrefix}-maskable-${size}.png criado`);
     }
 
     console.log('Todos os icones foram gerados com sucesso.');

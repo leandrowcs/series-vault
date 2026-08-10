@@ -45,6 +45,16 @@ type DashboardMetric = {
   tone: "cyan" | "purple" | "amber" | "green";
 };
 
+type UpcomingEpisodeItem = CalendarEvent & {
+  source: "calendar" | "watchlist";
+  series?: TrackedSeries;
+};
+
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
+};
+
 const configuredApiBaseUrl = String(
   import.meta.env.VITE_API_BASE_URL ?? "",
 ).trim();
@@ -250,6 +260,9 @@ const normalizeTrackedSeries = (
 function App() {
   const auth = useCloudAuth();
   const drive = useGoogleDriveBackup(auth.driveAccessToken);
+  const [installPrompt, setInstallPrompt] =
+    useState<BeforeInstallPromptEvent | null>(null);
+  const [isAppInstalled, setIsAppInstalled] = useState(false);
   const [activeTab, setActiveTab] = useState<ActiveTab>("home");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -270,6 +283,8 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [isTrackedLoading, setIsTrackedLoading] = useState(false);
   const [isCalendarLoading, setIsCalendarLoading] = useState(false);
+  const [isEpisodePrefetchLoading, setIsEpisodePrefetchLoading] =
+    useState(false);
   const [isStatsLoading, setIsStatsLoading] = useState(false);
   const [error, setError] = useState("");
   const [syncStatus, setSyncStatus] = useState<
@@ -286,6 +301,43 @@ function App() {
     new Set(),
   );
   const [libraryFilter, setLibraryFilter] = useState<LibraryFilter>("watching");
+
+  useEffect(() => {
+    const standaloneQuery = window.matchMedia("(display-mode: standalone)");
+    const navigatorWithStandalone = window.navigator as Navigator & {
+      standalone?: boolean;
+    };
+
+    const updateInstalledState = () => {
+      setIsAppInstalled(
+        standaloneQuery.matches || navigatorWithStandalone.standalone === true,
+      );
+    };
+
+    const handleBeforeInstallPrompt = (event: Event) => {
+      event.preventDefault();
+      setInstallPrompt(event as BeforeInstallPromptEvent);
+    };
+
+    const handleAppInstalled = () => {
+      setInstallPrompt(null);
+      setIsAppInstalled(true);
+    };
+
+    updateInstalledState();
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    window.addEventListener("appinstalled", handleAppInstalled);
+    standaloneQuery.addEventListener("change", updateInstalledState);
+
+    return () => {
+      window.removeEventListener(
+        "beforeinstallprompt",
+        handleBeforeInstallPrompt,
+      );
+      window.removeEventListener("appinstalled", handleAppInstalled);
+      standaloneQuery.removeEventListener("change", updateInstalledState);
+    };
+  }, []);
 
   useEffect(() => {
     fetchTracked();
@@ -772,6 +824,11 @@ function App() {
     [cloudWatchedRecords],
   );
 
+  const watchedEpisodeKeys = useMemo(
+    () => new Set(watchedRecords.map((record) => record.episode_key)),
+    [watchedRecords],
+  );
+
   const watchedSeriesIds = useMemo(
     () => new Set(watchedRecords.map((record) => record.series_tmdb_id)),
     [watchedRecords],
@@ -830,6 +887,83 @@ function App() {
     [tracked, watchedSeriesIds],
   );
 
+  useEffect(() => {
+    if (activeTab !== "home" || !hasApi || continueWatching.length === 0) {
+      return;
+    }
+
+    const seriesMissingEpisodes = continueWatching
+      .slice(0, 6)
+      .filter((series) => !episodeCache[String(series.tmdb_id)]);
+
+    if (seriesMissingEpisodes.length === 0) return;
+
+    let cancelled = false;
+
+    const prefetchEpisodes = async () => {
+      setIsEpisodePrefetchLoading(true);
+
+      try {
+        const entries = await Promise.all(
+          seriesMissingEpisodes.map(async (series) => {
+            try {
+              const response = await api.get<EpisodeDetail[]>(
+                `/series/${series.tmdb_id}/episodes`,
+              );
+              const fetchedEpisodes = getArrayResponse<EpisodeDetail>(
+                response.data,
+                "episódios",
+              );
+
+              return [
+                String(series.tmdb_id),
+                applyWatchedRecords(fetchedEpisodes, cloudWatchedRecords),
+              ] as const;
+            } catch {
+              return null;
+            }
+          }),
+        );
+
+        if (cancelled) return;
+
+        const loadedEntries = entries.filter(
+          (entry): entry is readonly [string, EpisodeDetail[]] =>
+            entry !== null,
+        );
+
+        if (loadedEntries.length === 0) return;
+
+        setEpisodeCache((current) => {
+          const nextCache = { ...current };
+
+          loadedEntries.forEach(([tmdbId, seriesEpisodes]) => {
+            if (!nextCache[tmdbId]) {
+              nextCache[tmdbId] = seriesEpisodes;
+            }
+          });
+
+          return nextCache;
+        });
+      } finally {
+        if (!cancelled) {
+          setIsEpisodePrefetchLoading(false);
+        }
+      }
+    };
+
+    prefetchEpisodes();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    activeTab,
+    cloudWatchedRecords,
+    continueWatching,
+    episodeCache,
+  ]);
+
   const getLatestEpisodeLabel = (series: TrackedSeries) => {
     const latest = watchedRecords
       .filter((record) => record.series_tmdb_id === series.tmdb_id)
@@ -844,13 +978,65 @@ function App() {
     return `S${latest.season_number} - E${latest.episode_number}`;
   };
 
-  const upcomingEpisode = calendarEvents[0] ?? newEpisodes[0];
+  const nextWatchlistEpisode = useMemo<UpcomingEpisodeItem | undefined>(() => {
+    for (const series of continueWatching) {
+      const seriesEpisodes = episodeCache[String(series.tmdb_id)];
+      if (!seriesEpisodes?.length) continue;
+
+      const sortedEpisodes = [...seriesEpisodes].sort(
+        (episodeA, episodeB) =>
+          episodeA.season_number - episodeB.season_number ||
+          episodeA.episode_number - episodeB.episode_number,
+      );
+      const nextEpisode =
+        sortedEpisodes.find(
+          (episode) =>
+            episode.season_number > 0 &&
+            !watchedEpisodeKeys.has(getEpisodeKey(episode)),
+        ) ??
+        sortedEpisodes.find(
+          (episode) => !watchedEpisodeKeys.has(getEpisodeKey(episode)),
+        );
+
+      if (nextEpisode) {
+        return {
+          source: "watchlist",
+          series,
+          episode_id: nextEpisode.id,
+          series_id: series.id,
+          series_title: series.title,
+          season_number: nextEpisode.season_number,
+          episode_number: nextEpisode.episode_number,
+          title: nextEpisode.title,
+          air_date: nextEpisode.air_date,
+          still_path: nextEpisode.still_path,
+          series_poster_path: series.poster_path,
+          watched: false,
+        };
+      }
+    }
+
+    return undefined;
+  }, [continueWatching, episodeCache, watchedEpisodeKeys]);
+
+  const calendarUpcomingEpisode = useMemo<UpcomingEpisodeItem | undefined>(() => {
+    const calendarEpisode = calendarEvents[0] ?? newEpisodes[0];
+    if (!calendarEpisode) return undefined;
+
+    return {
+      ...calendarEpisode,
+      source: "calendar",
+    };
+  }, [calendarEvents, newEpisodes]);
+
+  const upcomingEpisode = calendarUpcomingEpisode ?? nextWatchlistEpisode;
   const isDashboardLoading =
     (isTrackedLoading && tracked.length === 0) ||
     (isStatsLoading && !stats.overview);
   const isContinueWatchingLoading =
     isTrackedLoading && continueWatching.length === 0;
-  const isUpcomingEpisodeLoading = isCalendarLoading && !upcomingEpisode;
+  const isUpcomingEpisodeLoading =
+    (isCalendarLoading || isEpisodePrefetchLoading) && !upcomingEpisode;
 
   const dashboardMetrics: DashboardMetric[] = [
     {
@@ -917,6 +1103,14 @@ function App() {
     setLibraryFilter(nextTab.id);
   };
 
+  const installApp = async () => {
+    if (!installPrompt) return;
+
+    await installPrompt.prompt();
+    await installPrompt.userChoice;
+    setInstallPrompt(null);
+  };
+
   const navItems: { id: ActiveTab; label: string; icon: string }[] = [
     { id: "home", label: "Início", icon: "home" },
     { id: "tracked", label: "Biblioteca", icon: "library" },
@@ -978,16 +1172,31 @@ function App() {
                 </h1>
                 <p>Pronto para mais uma maratona?</p>
               </span>
-              <button
-                type="button"
-                className="icon-button notification-button"
-                aria-label="Notificações"
-              >
-                <span
-                  className="vault-icon vault-icon-bell"
-                  aria-hidden="true"
-                />
-              </button>
+              <span className="greeting-actions">
+                {installPrompt && !isAppInstalled && (
+                  <button
+                    type="button"
+                    className="icon-button install-button"
+                    aria-label="Instalar app"
+                    onClick={installApp}
+                  >
+                    <span
+                      className="vault-icon vault-icon-install"
+                      aria-hidden="true"
+                    />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="icon-button notification-button"
+                  aria-label="Notificações"
+                >
+                  <span
+                    className="vault-icon vault-icon-bell"
+                    aria-hidden="true"
+                  />
+                </button>
+              </span>
             </div>
 
             <div
@@ -1127,7 +1336,18 @@ function App() {
                 <button
                   type="button"
                   className="upcoming-card"
-                  onClick={() => setActiveTab("calendar")}
+                  onClick={() => {
+                    if (
+                      upcomingEpisode.source === "watchlist" &&
+                      upcomingEpisode.series
+                    ) {
+                      setSelectedSeries(upcomingEpisode.series);
+                      setActiveTab("tracked");
+                      return;
+                    }
+
+                    setActiveTab("calendar");
+                  }}
                 >
                   <MediaImage
                     path={
@@ -1152,7 +1372,7 @@ function App() {
                 </button>
               ) : (
                 <p className="empty-state">
-                  Nenhum episódio no calendário desta semana.
+                  Nenhum episódio encontrado para sua fila no momento.
                 </p>
               )}
             </section>
