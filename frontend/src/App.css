@@ -105,6 +105,15 @@
   color: var(--text);
 }
 
+.icon-button svg,
+.bottom-nav-item svg,
+.metric-icon svg,
+.continue-play-button svg {
+  width: 19px;
+  height: 19px;
+  stroke-width: 2.3;
+}
+
 .icon-button:hover,
 .bottom-nav-item:hover,
 .section-heading button:hover {
@@ -166,11 +175,6 @@
   backdrop-filter: blur(16px);
 }
 
-.notification-button {
-  border-color: var(--border);
-  background: rgba(16, 25, 24, 0.56);
-}
-
 .install-button {
   border-color: rgba(20, 160, 133, 0.38);
   background: rgba(15, 118, 110, 0.18);
@@ -209,7 +213,7 @@
 .cloud-button,
 .search-row button,
 .card button,
-.season-actions button {
+.season-watch-button {
   border: 0;
   border-radius: 8px;
   background: linear-gradient(135deg, var(--purple), var(--purple-light));
@@ -226,7 +230,7 @@
 .watch-list,
 .season-list,
 .season-episodes,
-.detail-card {
+.series-overview-panel {
   display: grid;
   gap: 12px;
 }
@@ -312,11 +316,6 @@
   background: rgba(15, 118, 110, 0.14);
 }
 
-.metric-icon .vault-icon {
-  width: 17px;
-  height: 17px;
-}
-
 .metric-icon-cyan {
   color: var(--cyan);
   background: rgba(22, 185, 255, 0.12);
@@ -369,34 +368,59 @@
 
 .library-tabs {
   display: grid;
-  grid-auto-columns: max-content;
-  grid-auto-flow: column;
-  gap: 8px;
-  overflow-x: auto;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
   padding: 0 0 9px;
   border-bottom: 1px solid var(--border);
-  scrollbar-width: none;
-}
-
-.library-tabs::-webkit-scrollbar {
-  display: none;
 }
 
 .library-tab {
-  min-height: 34px;
-  padding: 0 13px;
-  border: 0;
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 22px 0 7px;
+  border: 1px solid transparent;
   border-radius: 8px;
-  background: transparent;
-  color: var(--text);
-  font-size: 0.76rem;
+  background: rgba(16, 25, 24, 0.56);
+  color: var(--muted);
+  font-size: 0.68rem;
   font-weight: 800;
   white-space: nowrap;
 }
 
+.library-tab-icon {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 13px;
+  height: 13px;
+  stroke-width: 2;
+}
+
 .library-tab.active {
+  border-color: rgba(20, 160, 133, 0.36);
   background: linear-gradient(135deg, rgba(15, 118, 110, 0.94), rgba(20, 160, 133, 0.84));
+  color: var(--text);
   box-shadow: 0 8px 22px rgba(15, 118, 110, 0.28);
+}
+
+.library-groups {
+  display: grid;
+  gap: 14px;
+}
+
+.library-group {
+  display: grid;
+  gap: 8px;
+}
+
+.library-group-heading {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 900;
+  letter-spacing: 0;
 }
 
 .library-grid {
@@ -405,7 +429,13 @@
   gap: 12px;
 }
 
+.library-grid-list {
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
 .library-card {
+  position: relative;
   display: grid;
   gap: 8px;
   min-width: 0;
@@ -418,6 +448,13 @@
   text-align: left;
 }
 
+.library-grid-list .library-card {
+  grid-template-columns: 58px minmax(0, 1fr);
+  align-items: center;
+  gap: 11px;
+  padding: 8px 42px 8px 8px;
+}
+
 .library-card:hover,
 .library-card.selected {
   border-color: var(--border-strong);
@@ -425,6 +462,43 @@
 
 .library-card.selected {
   box-shadow: 0 0 0 1px rgba(20, 160, 133, 0.18), 0 14px 30px rgba(15, 118, 110, 0.16);
+}
+
+.library-status-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  aspect-ratio: 1;
+  border: 1px solid rgba(232, 241, 238, 0.16);
+  border-radius: 999px;
+  background: rgba(6, 10, 9, 0.78);
+  backdrop-filter: blur(10px);
+}
+
+.library-status-badge svg {
+  width: 15px;
+  height: 15px;
+  stroke-width: 2.4;
+}
+
+.library-status-badge-watching {
+  color: var(--cyan);
+}
+
+.library-status-badge-waiting {
+  color: var(--amber);
+}
+
+.library-status-badge-finished {
+  color: var(--green);
+}
+
+.library-status-badge-abandoned {
+  color: var(--danger);
 }
 
 .library-poster {
@@ -435,11 +509,22 @@
   border-bottom: 1px solid var(--border);
 }
 
+.library-grid-list .library-poster {
+  width: 58px;
+  aspect-ratio: 2 / 3;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
 .library-card-copy {
   display: grid;
   gap: 5px;
   min-width: 0;
   padding: 0 8px;
+}
+
+.library-grid-list .library-card-copy {
+  padding: 0;
 }
 
 .library-card-copy strong {
@@ -476,6 +561,17 @@
   gap: 12px;
 }
 
+.section-actions,
+.carousel-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section-actions {
+  flex: 0 0 auto;
+}
+
 .section-heading h2,
 .panel h2,
 .panel-inner h2,
@@ -492,6 +588,19 @@
   color: var(--purple-light);
   font-size: 0.76rem;
   font-weight: 800;
+}
+
+.carousel-button {
+  display: none;
+  width: 34px;
+  border-color: var(--border);
+  background: rgba(16, 25, 24, 0.56);
+  color: var(--muted);
+}
+
+.carousel-button:hover {
+  color: var(--purple-light);
+  border-color: var(--border-strong);
 }
 
 .watch-row,
@@ -783,7 +892,7 @@
 
 .search-row button,
 .card button,
-.season-actions button {
+.season-watch-button {
   padding: 10px 12px;
 }
 
@@ -856,24 +965,208 @@
   background: rgba(15, 118, 110, 0.18);
 }
 
-.series-summary {
+.series-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
   display: grid;
-  grid-template-columns: 88px minmax(0, 1fr);
-  gap: 12px;
-  align-items: start;
-  padding-bottom: 14px;
-  border-bottom: 1px solid var(--border);
+  align-items: end;
+  padding: 14px;
+  background: rgba(3, 7, 6, 0.78);
+  backdrop-filter: blur(16px);
 }
 
-.series-poster {
-  width: 88px;
+.series-modal {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  width: min(100%, 760px);
+  max-height: min(88dvh, 860px);
+  margin: 0 auto;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: 14px 14px 0 0;
+  background: rgba(11, 17, 16, 0.98);
+  box-shadow: 0 -24px 80px rgba(0, 0, 0, 0.5);
+}
+
+.series-modal-hero {
+  position: relative;
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr) 42px;
+  align-items: end;
+  gap: 13px;
+  padding: 14px;
+  border-bottom: 1px solid var(--border);
+  background:
+    linear-gradient(135deg, rgba(15, 118, 110, 0.32), transparent 58%),
+    rgba(16, 25, 24, 0.82);
+}
+
+.series-modal-poster {
+  width: 92px;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  border: 1px solid var(--border);
   border-radius: 8px;
 }
 
-.season-actions {
-  display: flex;
-  justify-content: flex-end;
+.series-modal-title {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.series-modal-title h2,
+.series-cast-section h3 {
+  margin: 0;
+}
+
+.series-modal-title h2 {
+  overflow-wrap: anywhere;
+  font-size: 1.35rem;
+  line-height: 1.12;
+}
+
+.series-modal-title p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.series-modal-close {
+  align-self: start;
+  border-color: var(--border);
+  background: rgba(6, 10, 9, 0.62);
+}
+
+.series-modal-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.series-modal-tab {
+  min-height: 38px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: rgba(16, 25, 24, 0.76);
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.series-modal-tab.active {
+  border-color: rgba(20, 160, 133, 0.38);
+  background: linear-gradient(135deg, rgba(15, 118, 110, 0.94), rgba(20, 160, 133, 0.84));
+  color: var(--text);
+}
+
+.series-modal-content {
+  min-height: 0;
+  overflow: auto;
+  padding: 14px;
+}
+
+.series-overview-text {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.9rem;
+  line-height: 1.52;
+}
+
+.series-detail-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.series-detail-stats div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(16, 25, 24, 0.76);
+}
+
+.series-detail-stats span,
+.series-detail-stats small,
+.series-cast-list small {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.series-detail-stats strong {
+  overflow: hidden;
+  font-size: 0.92rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.series-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.series-cast-section {
+  display: grid;
+  gap: 10px;
+}
+
+.series-cast-section h3 {
+  font-size: 0.95rem;
+}
+
+.series-cast-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.series-cast-list div {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  align-items: center;
+  column-gap: 9px;
+  min-width: 0;
+}
+
+.series-cast-list strong,
+.series-cast-list small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.series-cast-list small {
+  grid-column: 2;
+}
+
+.actor-avatar {
+  grid-row: span 2;
+  width: 42px;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+}
+
+.series-modal-season-list {
+  gap: 10px;
+}
+
+.season-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  background: rgba(11, 17, 16, 0.78);
 }
 
 .season-group {
@@ -890,7 +1183,7 @@
   width: 100%;
   padding: 11px 12px;
   border: 0;
-  background: rgba(11, 17, 16, 0.78);
+  background: transparent;
   color: var(--text);
   text-align: left;
 }
@@ -908,6 +1201,17 @@
   background: rgba(20, 160, 133, 0.16);
   color: var(--purple-light);
   font-weight: 900;
+  transition: transform 160ms ease;
+}
+
+.season-toggle-icon.expanded {
+  transform: rotate(180deg);
+}
+
+.season-watch-button {
+  align-self: center;
+  margin: 8px 8px 8px 0;
+  white-space: nowrap;
 }
 
 .season-title {
@@ -1123,226 +1427,6 @@
   font-weight: 800;
 }
 
-.vault-icon {
-  position: relative;
-  display: inline-block;
-  width: 21px;
-  height: 21px;
-  flex: 0 0 auto;
-  color: currentColor;
-  vertical-align: middle;
-}
-
-.vault-icon,
-.vault-icon::before,
-.vault-icon::after {
-  box-sizing: border-box;
-}
-
-.vault-icon-play::before {
-  content: "";
-  position: absolute;
-  left: 7px;
-  top: 4px;
-  border-top: 6px solid transparent;
-  border-bottom: 6px solid transparent;
-  border-left: 9px solid currentColor;
-}
-
-.vault-icon-tv::before {
-  content: "";
-  position: absolute;
-  inset: 4px 2px 5px;
-  border: 2px solid currentColor;
-  border-radius: 3px;
-}
-
-.vault-icon-tv::after {
-  content: "";
-  position: absolute;
-  left: 7px;
-  right: 7px;
-  bottom: 2px;
-  height: 2px;
-  background: currentColor;
-}
-
-.vault-icon-clock {
-  border: 2px solid currentColor;
-  border-radius: 50%;
-}
-
-.vault-icon-clock::before {
-  content: "";
-  position: absolute;
-  left: calc(50% - 1px);
-  top: 24%;
-  width: 2px;
-  height: 32%;
-  background: currentColor;
-  transform-origin: bottom;
-}
-
-.vault-icon-clock::after {
-  content: "";
-  position: absolute;
-  left: calc(50% - 1px);
-  top: calc(50% - 1px);
-  width: 40%;
-  height: 2px;
-  background: currentColor;
-  transform-origin: left center;
-}
-
-.vault-icon-calendar::before {
-  content: "";
-  position: absolute;
-  inset: 4px 2px 2px;
-  border: 2px solid currentColor;
-  border-radius: 3px;
-}
-
-.vault-icon-calendar::after {
-  content: "";
-  position: absolute;
-  left: 5px;
-  right: 5px;
-  top: 8px;
-  height: 2px;
-  background: currentColor;
-}
-
-.vault-icon-bell::before {
-  content: "";
-  position: absolute;
-  left: 5px;
-  top: 4px;
-  width: 11px;
-  height: 12px;
-  border: 2px solid currentColor;
-  border-bottom: 0;
-  border-radius: 9px 9px 2px 2px;
-}
-
-.vault-icon-bell::after {
-  content: "";
-  position: absolute;
-  left: 4px;
-  right: 4px;
-  bottom: 3px;
-  height: 2px;
-  background: currentColor;
-  box-shadow: 6px 3px 0 -1px currentColor;
-}
-
-.vault-icon-install::before {
-  content: "";
-  position: absolute;
-  left: 9px;
-  top: 3px;
-  width: 3px;
-  height: 10px;
-  border-radius: 999px;
-  background: currentColor;
-}
-
-.vault-icon-install::after {
-  content: "";
-  position: absolute;
-  left: 4px;
-  top: 11px;
-  width: 13px;
-  height: 7px;
-  border: 2px solid currentColor;
-  border-top: 0;
-  border-radius: 0 0 3px 3px;
-  background:
-    linear-gradient(45deg, transparent 48%, currentColor 50%, transparent 52%) 3px -7px / 8px 8px no-repeat,
-    linear-gradient(-45deg, transparent 48%, currentColor 50%, transparent 52%) 8px -7px / 8px 8px no-repeat;
-}
-
-.vault-icon-search::before {
-  content: "";
-  position: absolute;
-  left: 3px;
-  top: 3px;
-  width: 10px;
-  height: 10px;
-  border: 2px solid currentColor;
-  border-radius: 50%;
-}
-
-.vault-icon-search::after {
-  content: "";
-  position: absolute;
-  right: 3px;
-  bottom: 3px;
-  width: 8px;
-  height: 2px;
-  border-radius: 999px;
-  background: currentColor;
-  transform: rotate(45deg);
-  transform-origin: center;
-}
-
-.vault-icon-filter::before {
-  content: "";
-  position: absolute;
-  left: 3px;
-  right: 3px;
-  top: 5px;
-  height: 2px;
-  border-radius: 999px;
-  background: currentColor;
-  box-shadow: 4px 6px 0 currentColor, 8px 12px 0 currentColor;
-}
-
-.vault-icon-home::before {
-  content: "";
-  position: absolute;
-  left: 4px;
-  top: 8px;
-  width: 13px;
-  height: 10px;
-  background: currentColor;
-  clip-path: polygon(0 35%, 50% 0, 100% 35%, 100% 100%, 62% 100%, 62% 62%, 38% 62%, 38% 100%, 0 100%);
-}
-
-.vault-icon-library::before {
-  content: "";
-  position: absolute;
-  left: 3px;
-  top: 4px;
-  width: 5px;
-  height: 14px;
-  border: 2px solid currentColor;
-  border-radius: 2px;
-  box-shadow: 7px 0 0 -1px transparent, 8px 0 0 0 currentColor;
-}
-
-.vault-icon-stats::before {
-  content: "";
-  position: absolute;
-  left: 3px;
-  bottom: 3px;
-  width: 3px;
-  height: 9px;
-  background: currentColor;
-  box-shadow: 7px -5px 0 currentColor, 14px -10px 0 currentColor;
-}
-
-.vault-icon-more::before {
-  content: "";
-  position: absolute;
-  left: 2px;
-  top: 9px;
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: currentColor;
-  box-shadow: 7px 0 0 currentColor, 14px 0 0 currentColor;
-}
-
 @media (min-width: 760px) {
   body {
     background:
@@ -1359,6 +1443,29 @@
 
   .bottom-nav {
     border-radius: 18px;
+  }
+
+  .carousel-button {
+    display: grid;
+  }
+
+  .continue-watching-scroll {
+    scrollbar-color: rgba(20, 160, 133, 0.5) transparent;
+    scrollbar-width: thin;
+  }
+
+  .continue-watching-scroll::-webkit-scrollbar {
+    display: block;
+    height: 8px;
+  }
+
+  .continue-watching-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .continue-watching-scroll::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: rgba(20, 160, 133, 0.45);
   }
 }
 

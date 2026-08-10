@@ -1,5 +1,28 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type WheelEvent } from "react";
 import axios from "axios";
+import {
+  BarChart3,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  Clock3,
+  Download,
+  Grid2X2,
+  Home,
+  Library,
+  List,
+  MoreHorizontal,
+  Play,
+  BookmarkCheck,
+  BookmarkPlus,
+  BookmarkX,
+  ChevronDown,
+  Search,
+  Star,
+  Tv,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 import { useCloudAuth } from "./hooks/useCloudAuth";
 import { useGoogleDriveBackup } from "./hooks/useGoogleDriveBackup";
 import {
@@ -35,12 +58,23 @@ type SeasonEpisodeGroup = {
 
 type ActiveTab = "home" | "tracked" | "calendar" | "stats" | "search";
 
-type LibraryFilter = "watching" | "inProgress" | "waiting" | "finished";
+type LibraryFilter = "watching" | "waiting" | "finished" | "abandoned" | "all";
+
+type LibraryViewMode = "covers" | "list";
+
+type SeriesModalTab = "details" | "seasons";
+
+type LibrarySeriesStatus =
+  | "watching"
+  | "waiting"
+  | "finished"
+  | "abandoned"
+  | "notStarted";
 
 type DashboardMetric = {
   label: string;
   value: string;
-  icon: string;
+  icon: LucideIcon;
   layout: "compact" | "wide";
   tone: "cyan" | "purple" | "amber" | "green";
 };
@@ -198,6 +232,63 @@ const applyWatchedRecords = (
     };
   });
 
+const endedSeriesStatuses = new Set([
+  "canceled",
+  "cancelled",
+  "ended",
+  "finalizada",
+  "finalizado",
+]);
+
+const isSeriesEnded = (series: TrackedSeries) =>
+  endedSeriesStatuses.has(String(series.status ?? "").trim().toLowerCase());
+
+const abandonedSeriesStatuses = new Set([
+  "abandoned",
+  "abandonada",
+  "abandonado",
+]);
+
+const isSeriesAbandoned = (series: TrackedSeries) => {
+  const userStatus = String(
+    series.user_status ?? series.library_status ?? series.personal_status ?? "",
+  )
+    .trim()
+    .toLowerCase();
+
+  return abandonedSeriesStatuses.has(userStatus);
+};
+
+const getLibrarySeriesStatus = (series: TrackedSeries): LibrarySeriesStatus => {
+  if (isSeriesAbandoned(series)) {
+    return "abandoned";
+  }
+
+  if (series.completed_percent > 0 && series.completed_percent < 100) {
+    return "watching";
+  }
+
+  if (series.completed_percent >= 100 && isSeriesEnded(series)) {
+    return "finished";
+  }
+
+  if (series.completed_percent >= 100) {
+    return "waiting";
+  }
+
+  return "notStarted";
+};
+
+const sortSeriesByTitle = (items: TrackedSeries[]) =>
+  [...items].sort((seriesA, seriesB) =>
+    seriesA.title.localeCompare(seriesB.title, "pt-BR"),
+  );
+
+const getSeriesInitial = (title: string) => {
+  const firstChar = title.trim().charAt(0).toLocaleUpperCase("pt-BR");
+  return /^[A-ZÀ-Ú]$/i.test(firstChar) ? firstChar : "#";
+};
+
 const makeWatchedEpisodeRecord = (
   series: TrackedSeries,
   episode: EpisodeDetail,
@@ -220,14 +311,21 @@ const updateSeriesCompletion = (
   episodeCache: Record<string, EpisodeDetail[]>,
 ): TrackedSeries => {
   const cachedEpisodes = episodeCache[String(series.tmdb_id)];
+  const requiredEpisodes = cachedEpisodes?.filter(
+    (episode) => episode.season_number > 0,
+  );
   const totalEpisodes =
-    cachedEpisodes?.length || series.number_of_episodes || 0;
+    requiredEpisodes?.length || series.number_of_episodes || 0;
 
   if (!totalEpisodes) return series;
 
-  const watchedCount = Array.from(watchedRecords.values()).filter(
-    (record) => record.series_tmdb_id === series.tmdb_id,
-  ).length;
+  const watchedCount = requiredEpisodes
+    ? requiredEpisodes.filter((episode) =>
+        watchedRecords.has(getEpisodeKey(episode)),
+      ).length
+    : Array.from(watchedRecords.values()).filter(
+        (record) => record.series_tmdb_id === series.tmdb_id,
+      ).length;
   const completedPercent = Math.min(
     100,
     Math.round((watchedCount / totalEpisodes) * 100),
@@ -250,16 +348,28 @@ const normalizeTrackedSeries = (
   title: series.title ?? series.name ?? series.original_name ?? "",
   overview: series.overview,
   poster_path: series.poster_path,
+  backdrop_path: series.backdrop_path,
   completed_percent: Number(series.completed_percent ?? 0),
   number_of_seasons: series.number_of_seasons,
   number_of_episodes: series.number_of_episodes,
   status: series.status,
+  first_air_date: series.first_air_date,
+  last_air_date: series.last_air_date,
+  episode_run_time: series.episode_run_time,
+  vote_average: series.vote_average,
+  vote_count: series.vote_count,
+  genres: series.genres,
+  actors: series.actors,
+  user_status: series.user_status,
+  library_status: series.library_status,
+  personal_status: series.personal_status,
   last_synced_at: series.last_synced_at ?? new Date().toISOString(),
 });
 
 function App() {
   const auth = useCloudAuth();
   const drive = useGoogleDriveBackup(auth.driveAccessToken);
+  const continueScrollRef = useRef<HTMLDivElement | null>(null);
   const [installPrompt, setInstallPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
   const [isAppInstalled, setIsAppInstalled] = useState(false);
@@ -270,6 +380,8 @@ function App() {
   const [selectedSeries, setSelectedSeries] = useState<TrackedSeries | null>(
     null,
   );
+  const [seriesModalTab, setSeriesModalTab] =
+    useState<SeriesModalTab>("details");
   const [episodes, setEpisodes] = useState<EpisodeDetail[]>([]);
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
   const [newEpisodes, setNewEpisodes] = useState<CalendarNewEpisode[]>([]);
@@ -301,6 +413,8 @@ function App() {
     new Set(),
   );
   const [libraryFilter, setLibraryFilter] = useState<LibraryFilter>("watching");
+  const [libraryViewMode, setLibraryViewMode] =
+    useState<LibraryViewMode>("covers");
 
   useEffect(() => {
     const standaloneQuery = window.matchMedia("(display-mode: standalone)");
@@ -438,6 +552,7 @@ function App() {
     if (selectedSeries) {
       setEpisodes([]);
       setExpandedSeasons(new Set());
+      setSeriesModalTab("details");
       fetchSeriesEpisodes(selectedSeries.id);
     }
   }, [selectedSeries?.id]);
@@ -478,7 +593,11 @@ function App() {
     });
 
     return Array.from(groups.entries())
-      .sort(([seasonA], [seasonB]) => seasonA - seasonB)
+      .sort(([seasonA], [seasonB]) => {
+        if (seasonA === 0) return 1;
+        if (seasonB === 0) return -1;
+        return seasonA - seasonB;
+      })
       .map(([seasonNumber, seasonEpisodes]) => {
         const sortedEpisodes = [...seasonEpisodes].sort(
           (episodeA, episodeB) =>
@@ -508,18 +627,22 @@ function App() {
         (seasonNumber) => availableSeasons.has(seasonNumber),
       );
 
-      if (stillAvailable.length > 0) {
-        return new Set(stillAvailable);
-      }
-
-      const firstIncompleteSeason = seasonGroups.find(
-        (group) => group.watchedCount < group.episodes.length,
-      );
-      return new Set([
-        firstIncompleteSeason?.seasonNumber ?? seasonGroups[0].seasonNumber,
-      ]);
+      return new Set(stillAvailable);
     });
   }, [seasonGroups]);
+
+  useEffect(() => {
+    if (!selectedSeries) return;
+
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setSelectedSeries(null);
+      }
+    };
+
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [selectedSeries]);
 
   const fetchTracked = async () => {
     if (!hasApi) return;
@@ -706,6 +829,110 @@ function App() {
     }
   };
 
+  const setSeasonWatchState = async (
+    group: SeasonEpisodeGroup,
+    shouldMarkWatched: boolean,
+  ) => {
+    if (!selectedSeries) return;
+
+    const changedEpisodes = group.episodes.filter(
+      (episode) => episode.watched !== shouldMarkWatched,
+    );
+    if (changedEpisodes.length === 0) return;
+
+    const changedEpisodeKeys = new Set(changedEpisodes.map(getEpisodeKey));
+    const nextWatchedRecords = new Map(cloudWatchedRecords);
+
+    changedEpisodes.forEach((episode) => {
+      const episodeKey = getEpisodeKey(episode);
+
+      if (shouldMarkWatched) {
+        nextWatchedRecords.set(
+          episodeKey,
+          makeWatchedEpisodeRecord(selectedSeries, episode),
+        );
+      } else {
+        nextWatchedRecords.delete(episodeKey);
+      }
+    });
+
+    const nextEpisodes = episodes.map((episode) =>
+      changedEpisodeKeys.has(getEpisodeKey(episode))
+        ? {
+            ...episode,
+            watched: shouldMarkWatched,
+            progress_percent: shouldMarkWatched ? 100 : 0,
+          }
+        : episode,
+    );
+    const nextEpisodeCache = {
+      ...episodeCache,
+      [String(selectedSeries.tmdb_id)]: nextEpisodes,
+    };
+    const nextSelectedSeries = updateSeriesCompletion(
+      selectedSeries,
+      nextWatchedRecords,
+      nextEpisodeCache,
+    );
+
+    setEpisodes(nextEpisodes);
+    setEpisodeCache(nextEpisodeCache);
+    setCloudWatchedRecords(nextWatchedRecords);
+    setSelectedSeries(nextSelectedSeries);
+    setTracked((current) =>
+      current.map((series) =>
+        series.tmdb_id === nextSelectedSeries.tmdb_id
+          ? nextSelectedSeries
+          : series,
+      ),
+    );
+
+    try {
+      if (shouldMarkWatched) {
+        if (hasApi) {
+          await Promise.all(
+            changedEpisodes.map((episode) =>
+              api
+                .patch(`/watch/episodes/${episode.id}`, {
+                  watched: true,
+                  progress_percent: 100,
+                })
+                .catch(() => null),
+            ),
+          );
+        }
+        if (auth.user) {
+          await Promise.all(
+            changedEpisodes.map((episode) =>
+              saveCloudWatchedEpisode(auth.user!.uid, selectedSeries, episode),
+            ),
+          );
+        }
+      } else {
+        if (hasApi) {
+          await Promise.all(
+            changedEpisodes.map((episode) =>
+              api.delete(`/watch/episodes/${episode.id}`).catch(() => null),
+            ),
+          );
+        }
+        if (auth.user) {
+          await Promise.all(
+            changedEpisodes.map((episode) =>
+              deleteCloudWatchedEpisode(auth.user!.uid, episode),
+            ),
+          );
+        }
+      }
+
+      if (auth.user) {
+        await saveCloudTrackedSeries(auth.user.uid, nextSelectedSeries);
+      }
+    } catch (err) {
+      setError("Erro ao atualizar temporada");
+    }
+  };
+
   const toggleSeason = (seasonNumber: number) => {
     setExpandedSeasons((currentExpandedSeasons) => {
       const nextExpandedSeasons = new Set(currentExpandedSeasons);
@@ -718,16 +945,6 @@ function App() {
 
       return nextExpandedSeasons;
     });
-  };
-
-  const expandAllSeasons = () => {
-    setExpandedSeasons(
-      new Set(seasonGroups.map((group) => group.seasonNumber)),
-    );
-  };
-
-  const collapseAllSeasons = () => {
-    setExpandedSeasons(new Set());
   };
 
   const fetchCalendar = async () => {
@@ -807,11 +1024,6 @@ function App() {
     }
   };
 
-  const selectedInfo = useMemo(() => {
-    if (!selectedSeries) return "Selecione uma série para ver os episódios.";
-    return `${selectedSeries.title} • ${selectedSeries.number_of_seasons ?? 0} temporadas • ${selectedSeries.completed_percent}% assistido`;
-  }, [selectedSeries]);
-
   const syncLabel = {
     idle: auth.isConfigured ? "Cloud pronto" : "Cloud não configurado",
     syncing: "Sincronizando",
@@ -826,11 +1038,6 @@ function App() {
 
   const watchedEpisodeKeys = useMemo(
     () => new Set(watchedRecords.map((record) => record.episode_key)),
-    [watchedRecords],
-  );
-
-  const watchedSeriesIds = useMemo(
-    () => new Set(watchedRecords.map((record) => record.series_tmdb_id)),
     [watchedRecords],
   );
 
@@ -871,20 +1078,33 @@ function App() {
     watchedRecords.map((record) => record.watched_at.slice(0, 10)),
   ).size;
 
+  const selectedEpisodeTotals = useMemo(() => {
+    const regularEpisodes = episodes.filter(
+      (episode) => episode.season_number > 0,
+    );
+    const specialEpisodes = episodes.filter(
+      (episode) => episode.season_number === 0,
+    );
+
+    return {
+      regular: regularEpisodes.length,
+      regularWatched: regularEpisodes.filter((episode) => episode.watched)
+        .length,
+      specials: specialEpisodes.length,
+      specialsWatched: specialEpisodes.filter((episode) => episode.watched)
+        .length,
+    };
+  }, [episodes]);
+
   const continueWatching = useMemo(
     () =>
       tracked
-        .filter(
-          (series) =>
-            (watchedSeriesIds.has(series.tmdb_id) ||
-              series.completed_percent > 0) &&
-            series.completed_percent < 100,
-        )
+        .filter((series) => getLibrarySeriesStatus(series) === "watching")
         .sort(
           (seriesA, seriesB) =>
             seriesB.completed_percent - seriesA.completed_percent,
         ),
-    [tracked, watchedSeriesIds],
+    [tracked],
   );
 
   useEffect(() => {
@@ -1042,65 +1262,269 @@ function App() {
     {
       label: "Séries",
       value: String(tracked.length),
-      icon: "play",
+      icon: Play,
       layout: "compact",
       tone: "cyan",
     },
     {
       label: "Episódios assistidos",
       value: String(totalWatchedEpisodes),
-      icon: "tv",
+      icon: Tv,
       layout: "compact",
       tone: "purple",
     },
     {
       label: "Tempo total assistindo",
       value: formatWatchDuration(totalRuntimeMinutes),
-      icon: "clock",
+      icon: Clock3,
       layout: "wide",
       tone: "amber",
     },
     {
       label: "Dias ativos assistindo",
       value: String(activeWatchDays),
-      icon: "calendar",
+      icon: CalendarDays,
       layout: "wide",
       tone: "green",
     },
   ];
 
-  const libraryTabs: { id: LibraryFilter; label: string }[] = [
-    { id: "watching", label: "Assistindo" },
-    { id: "inProgress", label: "Em Andamento" },
-    { id: "waiting", label: "Aguardando" },
-    { id: "finished", label: "Finalizadas" },
+  const libraryStatusIcons: Record<
+    Exclude<LibrarySeriesStatus, "notStarted">,
+    LucideIcon
+  > = {
+    watching: Star,
+    waiting: BookmarkPlus,
+    finished: BookmarkCheck,
+    abandoned: BookmarkX,
+  };
+
+  const libraryTabs: { id: LibraryFilter; label: string; icon?: LucideIcon }[] = [
+    { id: "watching", label: "Assistindo", icon: Star },
+    { id: "waiting", label: "Aguardando", icon: BookmarkPlus },
+    { id: "finished", label: "Finalizadas", icon: BookmarkCheck },
+    { id: "abandoned", label: "Abandonadas", icon: BookmarkX },
+    { id: "all", label: "Todas", icon: Library },
   ];
 
   const librarySeries = useMemo(() => {
-    if (libraryFilter === "inProgress") {
-      return tracked.filter(
-        (series) =>
-          series.completed_percent > 0 && series.completed_percent < 100,
+    if (libraryFilter === "watching") {
+      return sortSeriesByTitle(
+        tracked.filter((series) => getLibrarySeriesStatus(series) === "watching"),
       );
     }
 
     if (libraryFilter === "waiting") {
-      return tracked.filter((series) => series.completed_percent === 0);
+      return sortSeriesByTitle(
+        tracked.filter((series) => getLibrarySeriesStatus(series) === "waiting"),
+      );
     }
 
     if (libraryFilter === "finished") {
-      return tracked.filter((series) => series.completed_percent >= 100);
+      return sortSeriesByTitle(
+        tracked.filter((series) => getLibrarySeriesStatus(series) === "finished"),
+      );
     }
 
-    return tracked;
+    if (libraryFilter === "abandoned") {
+      return sortSeriesByTitle(
+        tracked.filter(
+          (series) => getLibrarySeriesStatus(series) === "abandoned",
+        ),
+      );
+    }
+
+    return sortSeriesByTitle(tracked);
   }, [tracked, libraryFilter]);
 
-  const cycleLibraryFilter = () => {
-    const currentIndex = libraryTabs.findIndex(
-      (tab) => tab.id === libraryFilter,
+  const groupedLibrarySeries = useMemo(() => {
+    if (libraryFilter !== "all") {
+      return [{ label: "", series: librarySeries }];
+    }
+
+    return librarySeries.reduce<{ label: string; series: TrackedSeries[] }[]>(
+      (groups, series) => {
+        const label = getSeriesInitial(series.title);
+        const currentGroup = groups[groups.length - 1];
+
+        if (currentGroup?.label === label) {
+          currentGroup.series.push(series);
+          return groups;
+        }
+
+        groups.push({ label, series: [series] });
+        return groups;
+      },
+      [],
     );
-    const nextTab = libraryTabs[(currentIndex + 1) % libraryTabs.length];
-    setLibraryFilter(nextTab.id);
+  }, [libraryFilter, librarySeries]);
+
+  const cycleLibraryViewMode = () => {
+    setLibraryViewMode((currentMode) =>
+      currentMode === "covers" ? "list" : "covers",
+    );
+  };
+
+  const getLibraryEmptyMessage = () => {
+    if (libraryFilter === "watching") {
+      return "Nenhuma série com episódios em andamento.";
+    }
+
+    if (libraryFilter === "waiting") {
+      return "Nenhuma série aguardando novas temporadas.";
+    }
+
+    if (libraryFilter === "finished") {
+      return "Nenhuma série finalizada por enquanto.";
+    }
+
+    if (libraryFilter === "abandoned") {
+      return "Nenhuma série abandonada por enquanto.";
+    }
+
+    return "Nenhuma série encontrada na biblioteca.";
+  };
+
+  const getLibrarySeriesMeta = (series: TrackedSeries) => {
+    const status = getLibrarySeriesStatus(series);
+
+    if (status === "finished") {
+      return "Finalizada";
+    }
+
+    if (status === "waiting") {
+      return "Aguardando nova temporada";
+    }
+
+    if (status === "abandoned") {
+      return "Abandonada";
+    }
+
+    if (status === "watching") {
+      return `${series.completed_percent}% assistido`;
+    }
+
+    return "Ainda não iniciada";
+  };
+
+  const selectedSeriesDetails = useMemo(() => {
+    if (!selectedSeries) return [];
+
+    return [
+      {
+        label: "Status",
+        value: getLibrarySeriesMeta(selectedSeries),
+      },
+      {
+        label: "Temporadas",
+        value: String(selectedSeries.number_of_seasons ?? seasonGroups.length),
+      },
+      {
+        label: "Episódios",
+        value: selectedEpisodeTotals.regular
+          ? String(selectedEpisodeTotals.regular)
+          : String(selectedSeries.number_of_episodes ?? 0),
+      },
+      {
+        label: "Especiais",
+        value: selectedEpisodeTotals.specials
+          ? `${selectedEpisodeTotals.specialsWatched}/${selectedEpisodeTotals.specials}`
+          : "Nenhum",
+      },
+      {
+        label: "Primeiro episódio",
+        value: formatDate(selectedSeries.first_air_date),
+      },
+      {
+        label: "Último episódio",
+        value: formatDate(selectedSeries.last_air_date),
+      },
+      {
+        label: "Duração média",
+        value: selectedSeries.episode_run_time
+          ? `${selectedSeries.episode_run_time} min`
+          : "-",
+      },
+    ];
+  }, [selectedEpisodeTotals, selectedSeries, seasonGroups.length]);
+
+  const renderLibraryCard = (series: TrackedSeries) => {
+    const seriesStatus = getLibrarySeriesStatus(series);
+    const StatusIcon =
+      seriesStatus === "notStarted" ? undefined : libraryStatusIcons[seriesStatus];
+
+    return (
+      <button
+        key={series.id}
+        type="button"
+        className={`library-card ${selectedSeries?.id === series.id ? "selected" : ""}`}
+        onClick={() => setSelectedSeries(series)}
+      >
+        {libraryFilter === "all" && StatusIcon && (
+          <span
+            className={`library-status-badge library-status-badge-${seriesStatus}`}
+            aria-label={getLibrarySeriesMeta(series)}
+            title={getLibrarySeriesMeta(series)}
+          >
+            <StatusIcon aria-hidden="true" />
+          </span>
+        )}
+        <MediaImage
+          path={series.poster_path}
+          alt={`Capa de ${series.title}`}
+          className="library-poster"
+          fallback="Sem capa"
+          size="w342"
+        />
+        <span className="library-card-copy">
+          <strong>{series.title}</strong>
+          <small>{getLibrarySeriesMeta(series)}</small>
+          <span className="progress-track">
+            <span
+              className="progress-fill"
+              style={{ width: `${series.completed_percent}%` }}
+            />
+          </span>
+        </span>
+      </button>
+    );
+  };
+
+  const hasLibraryGroups = groupedLibrarySeries.some(
+    (group) => group.series.length > 0,
+  );
+
+  const scrollContinueWatching = (direction: "left" | "right") => {
+    const container = continueScrollRef.current;
+    if (!container) return;
+
+    const distance = Math.round(container.clientWidth * 0.78);
+    container.scrollBy({
+      left: direction === "left" ? -distance : distance,
+      behavior: "smooth",
+    });
+  };
+
+  const handleContinueWatchingWheel = (
+    event: WheelEvent<HTMLDivElement>,
+  ) => {
+    const container = event.currentTarget;
+    if (container.scrollWidth <= container.clientWidth) return;
+
+    const delta =
+      Math.abs(event.deltaX) > Math.abs(event.deltaY)
+        ? event.deltaX
+        : event.deltaY;
+    const maxScrollLeft = container.scrollWidth - container.clientWidth;
+    const nextScrollLeft = Math.max(
+      0,
+      Math.min(maxScrollLeft, container.scrollLeft + delta),
+    );
+
+    if (nextScrollLeft !== container.scrollLeft) {
+      event.preventDefault();
+      container.scrollLeft = nextScrollLeft;
+    }
   };
 
   const installApp = async () => {
@@ -1111,12 +1535,12 @@ function App() {
     setInstallPrompt(null);
   };
 
-  const navItems: { id: ActiveTab; label: string; icon: string }[] = [
-    { id: "home", label: "Início", icon: "home" },
-    { id: "tracked", label: "Biblioteca", icon: "library" },
-    { id: "calendar", label: "Calendário", icon: "calendar" },
-    { id: "stats", label: "Estatísticas", icon: "stats" },
-    { id: "search", label: "Mais", icon: "more" },
+  const navItems: { id: ActiveTab; label: string; icon: LucideIcon }[] = [
+    { id: "home", label: "Início", icon: Home },
+    { id: "tracked", label: "Biblioteca", icon: Library },
+    { id: "calendar", label: "Calendário", icon: CalendarDays },
+    { id: "stats", label: "Estatísticas", icon: BarChart3 },
+    { id: "search", label: "Mais", icon: MoreHorizontal },
   ];
 
   return (
@@ -1172,31 +1596,18 @@ function App() {
                 </h1>
                 <p>Pronto para mais uma maratona?</p>
               </span>
-              <span className="greeting-actions">
-                {installPrompt && !isAppInstalled && (
+              {installPrompt && !isAppInstalled && (
+                <span className="greeting-actions">
                   <button
                     type="button"
                     className="icon-button install-button"
                     aria-label="Instalar app"
                     onClick={installApp}
                   >
-                    <span
-                      className="vault-icon vault-icon-install"
-                      aria-hidden="true"
-                    />
+                    <Download aria-hidden="true" />
                   </button>
-                )}
-                <button
-                  type="button"
-                  className="icon-button notification-button"
-                  aria-label="Notificações"
-                >
-                  <span
-                    className="vault-icon vault-icon-bell"
-                    aria-hidden="true"
-                  />
-                </button>
-              </span>
+                </span>
+              )}
             </div>
 
             <div
@@ -1217,31 +1628,54 @@ function App() {
                       </div>
                     ),
                   )
-                : dashboardMetrics.map((metric) => (
-                    <div
-                      key={metric.label}
-                      className={`metric-card metric-card-${metric.layout}`}
-                    >
-                      <span
-                        className={`metric-icon metric-icon-${metric.tone}`}
+                : dashboardMetrics.map((metric) => {
+                    const MetricIcon = metric.icon;
+
+                    return (
+                      <div
+                        key={metric.label}
+                        className={`metric-card metric-card-${metric.layout}`}
                       >
                         <span
-                          className={`vault-icon vault-icon-${metric.icon}`}
-                          aria-hidden="true"
-                        />
-                      </span>
-                      <strong>{metric.value}</strong>
-                      <span>{metric.label}</span>
-                    </div>
-                  ))}
+                          className={`metric-icon metric-icon-${metric.tone}`}
+                        >
+                          <MetricIcon aria-hidden="true" />
+                        </span>
+                        <strong>{metric.value}</strong>
+                        <span>{metric.label}</span>
+                      </div>
+                    );
+                  })}
             </div>
 
             <section className="home-section">
               <div className="section-heading">
                 <h2>Continue assistindo</h2>
-                <button type="button" onClick={() => setActiveTab("tracked")}>
-                  Ver tudo
-                </button>
+                <span className="section-actions">
+                  {continueWatching.length > 2 && (
+                    <span className="carousel-controls">
+                      <button
+                        type="button"
+                        className="icon-button carousel-button"
+                        aria-label="Rolar para a esquerda"
+                        onClick={() => scrollContinueWatching("left")}
+                      >
+                        <ChevronLeft aria-hidden="true" />
+                      </button>
+                      <button
+                        type="button"
+                        className="icon-button carousel-button"
+                        aria-label="Rolar para a direita"
+                        onClick={() => scrollContinueWatching("right")}
+                      >
+                        <ChevronRight aria-hidden="true" />
+                      </button>
+                    </span>
+                  )}
+                  <button type="button" onClick={() => setActiveTab("tracked")}>
+                    Ver tudo
+                  </button>
+                </span>
               </div>
 
               {isContinueWatchingLoading ? (
@@ -1269,7 +1703,11 @@ function App() {
                   Adicione uma série para montar sua fila.
                 </p>
               ) : (
-                <div className="continue-watching-scroll">
+                <div
+                  ref={continueScrollRef}
+                  className="continue-watching-scroll"
+                  onWheel={handleContinueWatchingWheel}
+                >
                   {continueWatching.map((series) => (
                     <button
                       key={series.id}
@@ -1292,8 +1730,11 @@ function App() {
                         <span className="continue-percent">
                           {series.completed_percent}%
                         </span>
-                        <span className="continue-play-button" aria-hidden="true">
-                          <span className="vault-icon vault-icon-play" />
+                        <span
+                          className="continue-play-button"
+                          aria-hidden="true"
+                        >
+                          <Play />
                         </span>
                       </span>
                       <span className="continue-copy">
@@ -1433,21 +1874,23 @@ function App() {
                   aria-label="Buscar séries"
                   onClick={() => setActiveTab("search")}
                 >
-                  <span
-                    className="vault-icon vault-icon-search"
-                    aria-hidden="true"
-                  />
+                  <Search aria-hidden="true" />
                 </button>
                 <button
                   type="button"
                   className="icon-button"
-                  aria-label="Alternar filtro"
-                  onClick={cycleLibraryFilter}
+                  aria-label={
+                    libraryViewMode === "covers"
+                      ? "Visualizar em lista"
+                      : "Visualizar em capas"
+                  }
+                  onClick={cycleLibraryViewMode}
                 >
-                  <span
-                    className="vault-icon vault-icon-filter"
-                    aria-hidden="true"
-                  />
+                  {libraryViewMode === "covers" ? (
+                    <List aria-hidden="true" />
+                  ) : (
+                    <Grid2X2 aria-hidden="true" />
+                  )}
                 </button>
               </div>
             </div>
@@ -1457,181 +1900,52 @@ function App() {
               role="tablist"
               aria-label="Filtros da biblioteca"
             >
-              {libraryTabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={libraryFilter === tab.id}
-                  className={
-                    libraryFilter === tab.id
-                      ? "library-tab active"
-                      : "library-tab"
-                  }
-                  onClick={() => setLibraryFilter(tab.id)}
-                >
-                  {tab.label}
-                </button>
-              ))}
+              {libraryTabs.map((tab) => {
+                const TabIcon = tab.icon;
+
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={libraryFilter === tab.id}
+                    className={
+                      libraryFilter === tab.id
+                        ? "library-tab active"
+                        : "library-tab"
+                    }
+                    onClick={() => setLibraryFilter(tab.id)}
+                  >
+                    <span>{tab.label}</span>
+                    {TabIcon && (
+                      <TabIcon className="library-tab-icon" aria-hidden="true" />
+                    )}
+                  </button>
+                );
+              })}
             </div>
 
-            {librarySeries.length === 0 ? (
-              <p className="empty-state">
-                Nenhuma série encontrada neste filtro.
-              </p>
+            {!hasLibraryGroups ? (
+              <p className="empty-state">{getLibraryEmptyMessage()}</p>
             ) : (
-              <div className="library-grid">
-                {librarySeries.map((series) => (
-                  <button
-                    key={series.id}
-                    type="button"
-                    className={`library-card ${selectedSeries?.id === series.id ? "selected" : ""}`}
-                    onClick={() => setSelectedSeries(series)}
+              <div className="library-groups">
+                {groupedLibrarySeries.map((group) => (
+                  <section
+                    key={group.label || libraryFilter}
+                    className="library-group"
                   >
-                    <MediaImage
-                      path={series.poster_path}
-                      alt={`Capa de ${series.title}`}
-                      className="library-poster"
-                      fallback="Sem capa"
-                      size="w342"
-                    />
-                    <span className="library-card-copy">
-                      <strong>{series.title}</strong>
-                      <small>{getLatestEpisodeLabel(series)}</small>
-                      <span className="progress-track">
-                        <span
-                          className="progress-fill"
-                          style={{ width: `${series.completed_percent}%` }}
-                        />
-                      </span>
-                    </span>
-                  </button>
+                    {group.label && (
+                      <h2 className="library-group-heading">{group.label}</h2>
+                    )}
+                    <div
+                      className={`library-grid library-grid-${libraryViewMode}`}
+                    >
+                      {group.series.map(renderLibraryCard)}
+                    </div>
+                  </section>
                 ))}
               </div>
             )}
-
-            <section className="library-detail">
-              <div className="section-heading">
-                <h2>Detalhes da série</h2>
-                {selectedSeries && (
-                  <span className="chip">
-                    {selectedSeries.completed_percent}%
-                  </span>
-                )}
-              </div>
-              <div className="detail-card">
-                {selectedSeries ? (
-                  <div className="series-summary">
-                    <MediaImage
-                      path={selectedSeries.poster_path}
-                      alt={`Capa de ${selectedSeries.title}`}
-                      className="series-poster"
-                      fallback="Sem capa"
-                      size="w342"
-                    />
-                    <div>
-                      <p>{selectedInfo}</p>
-                      <p className="item-description">
-                        {selectedSeries.overview}
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="empty-state">{selectedInfo}</p>
-                )}
-                {episodes.length === 0 ? (
-                  <p className="empty-state">
-                    Selecione uma série para ver seus episódios.
-                  </p>
-                ) : (
-                  <div className="season-list">
-                    <div className="season-actions">
-                      <button type="button" onClick={expandAllSeasons}>
-                        Expandir tudo
-                      </button>
-                      <button type="button" onClick={collapseAllSeasons}>
-                        Recolher tudo
-                      </button>
-                    </div>
-
-                    {seasonGroups.map((group) => {
-                      const isExpanded = expandedSeasons.has(
-                        group.seasonNumber,
-                      );
-                      const seasonTitle =
-                        group.seasonNumber === 0
-                          ? "Especiais"
-                          : `Temporada ${group.seasonNumber}`;
-
-                      return (
-                        <section
-                          key={group.seasonNumber}
-                          className="season-group"
-                        >
-                          <button
-                            type="button"
-                            className="season-toggle"
-                            aria-expanded={isExpanded}
-                            onClick={() => toggleSeason(group.seasonNumber)}
-                          >
-                            <span
-                              className="season-toggle-icon"
-                              aria-hidden="true"
-                            >
-                              {isExpanded ? "-" : "+"}
-                            </span>
-                            <span className="season-title">{seasonTitle}</span>
-                            <span className="season-count">
-                              {group.watchedCount}/{group.episodes.length}{" "}
-                              assistidos
-                            </span>
-                          </button>
-
-                          {isExpanded && (
-                            <div className="season-episodes">
-                              {group.episodes.map((episode) => (
-                                <div
-                                  key={episode.id}
-                                  className={`card episode-card ${episode.watched ? "episode-card-watched" : ""}`}
-                                >
-                                  <MediaImage
-                                    path={episode.still_path}
-                                    alt={`Imagem de ${episode.title ?? "episódio"}`}
-                                    className="episode-still"
-                                    fallback="Sem imagem"
-                                    size="w300"
-                                  />
-                                  <div className="episode-copy">
-                                    <strong>
-                                      E{episode.episode_number}:{" "}
-                                      {episode.title ?? "Sem título"}
-                                    </strong>
-                                    <p>
-                                      {formatDate(episode.air_date)} ·{" "}
-                                      {episode.runtime ?? 0} min
-                                    </p>
-                                    <p className="item-description">
-                                      {episode.overview}
-                                    </p>
-                                  </div>
-                                  <button
-                                    onClick={() => toggleEpisodeWatch(episode)}
-                                  >
-                                    {episode.watched
-                                      ? "Desmarcar"
-                                      : "Marcar como visto"}
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </section>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </section>
           </section>
         )}
 
@@ -1787,28 +2101,265 @@ function App() {
         )}
       </main>
 
-      <nav className="bottom-nav" aria-label="Navegacao principal">
-        {navItems.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            className={
-              activeTab === item.id
-                ? "bottom-nav-item active"
-                : "bottom-nav-item"
+      {selectedSeries && (
+        <div
+          className="series-modal-backdrop"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setSelectedSeries(null);
             }
-            onClick={() => {
-              setActiveTab(item.id);
-              setError("");
-            }}
+          }}
+        >
+          <section
+            className="series-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="series-modal-title"
           >
-            <span
-              className={`vault-icon vault-icon-${item.icon}`}
-              aria-hidden="true"
-            />
-            <span>{item.label}</span>
-          </button>
-        ))}
+            <div className="series-modal-hero">
+              <MediaImage
+                path={selectedSeries.poster_path}
+                alt={`Capa de ${selectedSeries.title}`}
+                className="series-modal-poster"
+                fallback="Sem capa"
+                size="w342"
+              />
+              <div className="series-modal-title">
+                <span className="chip">{selectedSeries.completed_percent}%</span>
+                <h2 id="series-modal-title">{selectedSeries.title}</h2>
+                <p>{getLibrarySeriesMeta(selectedSeries)}</p>
+              </div>
+              <button
+                type="button"
+                className="icon-button series-modal-close"
+                aria-label="Fechar detalhes da série"
+                onClick={() => setSelectedSeries(null)}
+              >
+                <X aria-hidden="true" />
+              </button>
+            </div>
+
+            <div className="series-modal-tabs" role="tablist">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={seriesModalTab === "details"}
+                className={
+                  seriesModalTab === "details"
+                    ? "series-modal-tab active"
+                    : "series-modal-tab"
+                }
+                onClick={() => setSeriesModalTab("details")}
+              >
+                Descrição
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={seriesModalTab === "seasons"}
+                className={
+                  seriesModalTab === "seasons"
+                    ? "series-modal-tab active"
+                    : "series-modal-tab"
+                }
+                onClick={() => setSeriesModalTab("seasons")}
+              >
+                Temporadas
+              </button>
+            </div>
+
+            <div className="series-modal-content">
+              {seriesModalTab === "details" ? (
+                <div className="series-overview-panel">
+                  <p className="series-overview-text">
+                    {selectedSeries.overview || "Sem descrição disponível."}
+                  </p>
+
+                  <div className="series-detail-stats">
+                    <div>
+                      <span>Nota TMDb</span>
+                      <strong>
+                        {selectedSeries.vote_average
+                          ? selectedSeries.vote_average.toFixed(1)
+                          : "-"}
+                      </strong>
+                      {selectedSeries.vote_count ? (
+                        <small>
+                          {selectedSeries.vote_count.toLocaleString("pt-BR")} votos
+                        </small>
+                      ) : null}
+                    </div>
+                    <div>
+                      <span>Assistidos</span>
+                      <strong>
+                        {selectedEpisodeTotals.regularWatched}/
+                        {selectedEpisodeTotals.regular ||
+                          selectedSeries.number_of_episodes ||
+                          0}
+                      </strong>
+                      <small>{selectedSeries.completed_percent}% completo</small>
+                    </div>
+                    {selectedSeriesDetails.map((detail) => (
+                      <div key={detail.label}>
+                        <span>{detail.label}</span>
+                        <strong>{detail.value}</strong>
+                      </div>
+                    ))}
+                  </div>
+
+                  {selectedSeries.genres?.length ? (
+                    <div className="series-chip-list">
+                      {selectedSeries.genres.map((genre) => (
+                        <span key={genre} className="status-chip">
+                          {genre}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  <section className="series-cast-section">
+                    <h3>Atores</h3>
+                    {selectedSeries.actors?.length ? (
+                      <div className="series-cast-list">
+                        {selectedSeries.actors.slice(0, 8).map((actor) => (
+                          <div key={`${actor.name}-${actor.character ?? ""}`}>
+                            <MediaImage
+                              path={actor.profile_path}
+                              alt={`Foto de ${actor.name}`}
+                              className="actor-avatar"
+                              fallback={actor.name.slice(0, 1)}
+                              size="w185"
+                            />
+                            <strong>{actor.name}</strong>
+                            {actor.character && <small>{actor.character}</small>}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="empty-state">Elenco não disponível.</p>
+                    )}
+                  </section>
+                </div>
+              ) : episodes.length === 0 ? (
+                <p className="empty-state">Episódios não carregados.</p>
+              ) : (
+                <div className="season-list series-modal-season-list">
+                  {seasonGroups.map((group) => {
+                    const isExpanded = expandedSeasons.has(group.seasonNumber);
+                    const isSeasonComplete =
+                      group.watchedCount === group.episodes.length;
+                    const seasonTitle =
+                      group.seasonNumber === 0
+                        ? "Especiais"
+                        : `Temporada ${group.seasonNumber}`;
+
+                    return (
+                      <section key={group.seasonNumber} className="season-group">
+                        <div className="season-header">
+                          <button
+                            type="button"
+                            className="season-toggle"
+                            aria-expanded={isExpanded}
+                            onClick={() => toggleSeason(group.seasonNumber)}
+                          >
+                            <ChevronDown
+                              className={
+                                isExpanded
+                                  ? "season-toggle-icon expanded"
+                                  : "season-toggle-icon"
+                              }
+                              aria-hidden="true"
+                            />
+                            <span className="season-title">{seasonTitle}</span>
+                            <span className="season-count">
+                              {group.watchedCount}/{group.episodes.length}
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            className="season-watch-button"
+                            onClick={() =>
+                              setSeasonWatchState(group, !isSeasonComplete)
+                            }
+                          >
+                            {isSeasonComplete
+                              ? "Desmarcar temporada"
+                              : "Marcar temporada"}
+                          </button>
+                        </div>
+
+                        {isExpanded && (
+                          <div className="season-episodes">
+                            {group.episodes.map((episode) => (
+                              <div
+                                key={episode.id}
+                                className={`card episode-card ${episode.watched ? "episode-card-watched" : ""}`}
+                              >
+                                <MediaImage
+                                  path={episode.still_path}
+                                  alt={`Imagem de ${episode.title ?? "episódio"}`}
+                                  className="episode-still"
+                                  fallback="Sem imagem"
+                                  size="w300"
+                                />
+                                <div className="episode-copy">
+                                  <strong>
+                                    E{episode.episode_number}:{" "}
+                                    {episode.title ?? "Sem título"}
+                                  </strong>
+                                  <p>
+                                    {formatDate(episode.air_date)} ·{" "}
+                                    {episode.runtime ?? 0} min
+                                  </p>
+                                  <p className="item-description">
+                                    {episode.overview}
+                                  </p>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => toggleEpisodeWatch(episode)}
+                                >
+                                  {episode.watched
+                                    ? "Desmarcar"
+                                    : "Marcar como visto"}
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </section>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
+      )}
+
+      <nav className="bottom-nav" aria-label="Navegacao principal">
+        {navItems.map((item) => {
+          const NavIcon = item.icon;
+
+          return (
+            <button
+              key={item.id}
+              type="button"
+              className={
+                activeTab === item.id
+                  ? "bottom-nav-item active"
+                  : "bottom-nav-item"
+              }
+              onClick={() => {
+                setActiveTab(item.id);
+                setError("");
+              }}
+            >
+              <NavIcon aria-hidden="true" />
+              <span>{item.label}</span>
+            </button>
+          );
+        })}
       </nav>
 
       <footer className="tmdb-attribution">

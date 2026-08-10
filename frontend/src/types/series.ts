@@ -12,10 +12,25 @@ export type TrackedSeries = {
   title: string
   overview?: string
   poster_path?: string
+  backdrop_path?: string
   completed_percent: number
   number_of_seasons?: number
   number_of_episodes?: number
   status?: string
+  first_air_date?: string
+  last_air_date?: string
+  episode_run_time?: number
+  vote_average?: number
+  vote_count?: number
+  genres?: string[]
+  actors?: {
+    name: string
+    character?: string
+    profile_path?: string
+  }[]
+  user_status?: 'abandoned'
+  library_status?: 'abandoned'
+  personal_status?: 'abandoned'
   last_synced_at?: string
 }
 

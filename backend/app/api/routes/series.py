@@ -17,6 +17,44 @@ def _tmdb_http_exception(exc: httpx.RequestError) -> HTTPException:
     return HTTPException(status_code=502, detail="Could not reach TMDb while syncing series")
 
 
+def _serialize_tracked_series(series: Series, completed_percent: float = 0) -> dict:
+    genres = [
+        mapping.genre.name
+        for mapping in series.genres
+        if mapping.genre
+    ]
+    cast = sorted(
+        [mapping for mapping in series.cast if mapping.person],
+        key=lambda mapping: mapping.cast_order if mapping.cast_order is not None else 999,
+    )
+
+    return {
+        "id": series.id,
+        "tmdb_id": series.tmdb_id,
+        "title": series.title,
+        "overview": series.overview,
+        "poster_path": series.poster_path,
+        "backdrop_path": series.backdrop_path,
+        "status": series.status,
+        "first_air_date": series.first_air_date,
+        "last_air_date": series.last_air_date,
+        "episode_run_time": series.episode_run_time,
+        "number_of_seasons": series.number_of_seasons,
+        "number_of_episodes": series.number_of_episodes or 0,
+        "completed_percent": round(completed_percent, 1),
+        "genres": genres,
+        "actors": [
+            {
+                "name": mapping.person.name,
+                "character": mapping.character,
+                "profile_path": mapping.person.profile_path,
+            }
+            for mapping in cast[:10]
+        ],
+        "last_synced_at": series.last_synced_at,
+    }
+
+
 @router.get("", include_in_schema=False)
 def search_series(query: str = Query(..., min_length=1)) -> List[dict]:
     try:
@@ -37,29 +75,25 @@ def get_tracked_series(session: Session = Depends(get_session)) -> List[dict]:
     tracked = session.exec(select(Series)).all()
     result = []
     for series in tracked:
-        total_episodes = series.number_of_episodes or 0
+        total_episodes = len(
+            [
+                episode
+                for season in series.seasons
+                if season.season_number > 0
+                for episode in season.episodes
+            ]
+        ) or series.number_of_episodes or 0
         watched_list = session.exec(
             select(EpisodeWatch)
             .join(Episode, EpisodeWatch.episode_id == Episode.id)
             .join(Season, Episode.season_id == Season.id)
-            .where(Season.series_id == series.id)
+            .where(Season.series_id == series.id, Season.season_number > 0)
         ).all()
         watched_count = len(watched_list)
         completion = (watched_count / total_episodes * 100) if total_episodes else 0
-        result.append(
-            {
-                "id": series.id,
-                "tmdb_id": series.tmdb_id,
-                "title": series.title,
-                "overview": series.overview,
-                "poster_path": series.poster_path,
-                "status": series.status,
-                "number_of_seasons": series.number_of_seasons,
-                "number_of_episodes": total_episodes,
-                "completed_percent": round(completion, 1),
-                "last_synced_at": series.last_synced_at,
-            }
-        )
+        serialized = _serialize_tracked_series(series, completion)
+        serialized["number_of_episodes"] = total_episodes
+        result.append(serialized)
     return result
 
 
@@ -74,7 +108,7 @@ def add_series(series_create: SeriesCreate = Body(...), session: Session = Depen
         raise _tmdb_http_exception(exc)
     except httpx.HTTPStatusError as exc:
         raise HTTPException(status_code=502, detail=f"TMDb returned status {exc.response.status_code}")
-    return series
+    return _serialize_tracked_series(series)
 
 
 @router.post("/")
@@ -87,7 +121,7 @@ def get_series(series_id: int = Path(..., gt=0), session: Session = Depends(get_
     series = session.get(Series, series_id)
     if not series:
         raise HTTPException(status_code=404, detail="Series not found")
-    return series
+    return _serialize_tracked_series(series)
 
 
 @router.get("/{series_id}/episodes")
