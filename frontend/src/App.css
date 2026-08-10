@@ -1,29 +1,33 @@
 :root {
-  --bg: #0d1117;
-  --surface: #101722;
-  --surface-strong: #151d2a;
-  --border: rgba(245, 245, 245, 0.1);
-  --border-strong: rgba(169, 112, 255, 0.35);
-  --text: #f5f5f5;
-  --muted: #a7afbd;
-  --purple: #7c4dff;
-  --purple-light: #a970ff;
-  --cyan: #16b9ff;
-  --amber: #ffc629;
-  --green: #24e284;
-  --danger: #ff784f;
+  --bg: #0b1110;
+  --surface: #101918;
+  --surface-strong: #152522;
+  --border: rgba(232, 241, 238, 0.1);
+  --border-strong: rgba(20, 160, 133, 0.38);
+  --text: #e8f1ee;
+  --muted: #91a39e;
+  --primary: #0f766e;
+  --primary-hover: #14a085;
+  --primary-dark: #0b5f59;
+  --purple: var(--primary);
+  --purple-light: var(--primary-hover);
+  --cyan: #38bdf8;
+  --amber: #f2b84b;
+  --green: #22c55e;
+  --danger: #e05252;
 }
 
 .app-shell {
   position: relative;
-  width: min(100%, 480px);
+  width: 100%;
+  max-width: 520px;
   min-height: 100dvh;
   margin: 0 auto;
   padding: calc(env(safe-area-inset-top, 0px) + 28px) 18px 112px;
   overflow: hidden;
   background:
-    radial-gradient(circle at 18% -8%, rgba(124, 77, 255, 0.22), transparent 28%),
-    radial-gradient(circle at 92% 4%, rgba(22, 185, 255, 0.12), transparent 24%),
+    radial-gradient(circle at 18% -8%, rgba(15, 118, 110, 0.28), transparent 28%),
+    radial-gradient(circle at 92% 4%, rgba(56, 189, 248, 0.1), transparent 24%),
     var(--bg);
   color: var(--text);
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05), 0 24px 80px rgba(0, 0, 0, 0.55);
@@ -53,7 +57,7 @@
   letter-spacing: 4px;
   line-height: 1.05;
   text-transform: uppercase;
-  filter: drop-shadow(0 0 12px rgba(124,77,255,.35));
+  filter: drop-shadow(0 0 12px rgba(20, 160, 133, 0.34));
 }
 
 .brand-mark strong {
@@ -66,7 +70,7 @@
     font-size:20px;
     font-weight:800;
     letter-spacing:4px;
-    color:#F4F4F5;
+    color: #e8f1ee;
     text-shadow:
         0 2px 8px rgba(255,255,255,.08);
 }
@@ -78,16 +82,16 @@
 
     background: linear-gradient(
       180deg,
-      #CFA8FF 0%,
-      #A855F7 45%,
-      #7C3AED 100%
+      #5eead4 0%,
+      #14a085 45%,
+      #0f766e 100%
     );
 
     -webkit-background-clip:text;
     -webkit-text-fill-color:transparent;
 
     text-shadow:
-        0 0 12px rgba(124,77,255,.35);
+        0 0 12px rgba(20, 160, 133, 0.35);
 }
 
 .icon-button {
@@ -152,13 +156,13 @@
   padding: 6px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: rgba(16, 23, 34, 0.72);
+  background: rgba(16, 25, 24, 0.72);
   backdrop-filter: blur(16px);
 }
 
 .notification-button {
   border-color: var(--border);
-  background: rgba(16, 23, 34, 0.56);
+  background: rgba(16, 25, 24, 0.56);
 }
 
 .cloud-avatar {
@@ -233,7 +237,7 @@
   padding: 8px 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: linear-gradient(180deg, rgba(21, 29, 42, 0.92), rgba(13, 17, 23, 0.76));
+  background: linear-gradient(180deg, rgba(21, 37, 34, 0.92), rgba(11, 17, 16, 0.76));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
   text-align: left;
 }
@@ -249,7 +253,7 @@
 .metric-card > span:last-child {
   min-width: 0;
   margin-top: 0;
-  color: #d8dbe2;
+  color: #d7e4e0;
   font-size: 0.68rem;
   font-weight: 800;
   line-height: 1.1;
@@ -293,7 +297,7 @@
   width: 30px;
   aspect-ratio: 1;
   border-radius: 8px;
-  background: rgba(124, 77, 255, 0.12);
+  background: rgba(15, 118, 110, 0.14);
 }
 
 .metric-icon .vault-icon {
@@ -308,7 +312,7 @@
 
 .metric-icon-purple {
   color: var(--purple-light);
-  background: rgba(124, 77, 255, 0.18);
+  background: rgba(15, 118, 110, 0.22);
 }
 
 .metric-icon-amber {
@@ -379,8 +383,8 @@
 }
 
 .library-tab.active {
-  background: linear-gradient(135deg, rgba(124, 77, 255, 0.92), rgba(169, 112, 255, 0.84));
-  box-shadow: 0 8px 22px rgba(124, 77, 255, 0.28);
+  background: linear-gradient(135deg, rgba(15, 118, 110, 0.94), rgba(20, 160, 133, 0.84));
+  box-shadow: 0 8px 22px rgba(15, 118, 110, 0.28);
 }
 
 .library-grid {
@@ -397,7 +401,7 @@
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: rgba(16, 23, 34, 0.82);
+  background: rgba(16, 25, 24, 0.82);
   color: var(--text);
   text-align: left;
 }
@@ -408,7 +412,7 @@
 }
 
 .library-card.selected {
-  box-shadow: 0 0 0 1px rgba(169, 112, 255, 0.18), 0 14px 30px rgba(124, 77, 255, 0.14);
+  box-shadow: 0 0 0 1px rgba(20, 160, 133, 0.18), 0 14px 30px rgba(15, 118, 110, 0.16);
 }
 
 .library-poster {
@@ -450,7 +454,7 @@
   padding: 14px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: rgba(16, 23, 34, 0.72);
+  background: rgba(16, 25, 24, 0.72);
 }
 
 .section-heading {
@@ -483,7 +487,7 @@
   width: 100%;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: rgba(16, 23, 34, 0.76);
+  background: rgba(16, 25, 24, 0.76);
   color: var(--text);
   text-align: left;
 }
@@ -559,8 +563,8 @@
   inset: 0;
   background: linear-gradient(
     180deg,
-    rgba(13, 17, 23, 0.02) 35%,
-    rgba(13, 17, 23, 0.78) 100%
+    rgba(11, 17, 16, 0.02) 35%,
+    rgba(11, 17, 16, 0.78) 100%
   );
 }
 
@@ -570,7 +574,7 @@
   bottom: 8px;
   padding: 5px 7px;
   border-radius: 999px;
-  background: rgba(7, 11, 18, 0.78);
+  background: rgba(6, 10, 9, 0.78);
   color: var(--text);
   font-size: 0.7rem;
   font-weight: 900;
@@ -587,7 +591,7 @@
   aspect-ratio: 1;
   border: 1px solid rgba(245, 245, 245, 0.38);
   border-radius: 50%;
-  background: rgba(7, 11, 18, 0.72);
+  background: rgba(6, 10, 9, 0.72);
   color: var(--text);
   backdrop-filter: blur(10px);
 }
@@ -671,7 +675,7 @@
   height: 4px;
   overflow: hidden;
   border-radius: 999px;
-  background: #222b3a;
+  background: #1d312d;
 }
 
 .progress-fill {
@@ -682,7 +686,7 @@
 }
 
 .watch-percent {
-  color: #d8dbe2;
+  color: #d7e4e0;
   font-size: 0.72rem;
   font-weight: 800;
   text-align: right;
@@ -725,7 +729,7 @@
 .stat-card {
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: rgba(16, 23, 34, 0.84);
+  background: rgba(16, 25, 24, 0.84);
 }
 
 .panel {
@@ -784,7 +788,7 @@
   padding: 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: rgba(21, 29, 42, 0.78);
+  background: rgba(21, 37, 34, 0.78);
 }
 
 .card-row,
@@ -825,7 +829,7 @@
   justify-content: center;
   padding: 6px 10px;
   border-radius: 999px;
-  background: rgba(124, 77, 255, 0.18);
+  background: rgba(15, 118, 110, 0.2);
   color: var(--purple-light);
   font-size: 0.78rem;
   font-weight: 800;
@@ -837,7 +841,7 @@
 
 .card-selectable.selected {
   border-color: var(--purple-light);
-  background: rgba(124, 77, 255, 0.16);
+  background: rgba(15, 118, 110, 0.18);
 }
 
 .series-summary {
@@ -874,13 +878,13 @@
   width: 100%;
   padding: 11px 12px;
   border: 0;
-  background: rgba(13, 17, 23, 0.78);
+  background: rgba(11, 17, 16, 0.78);
   color: var(--text);
   text-align: left;
 }
 
 .season-toggle:hover {
-  background: rgba(124, 77, 255, 0.12);
+  background: rgba(15, 118, 110, 0.14);
 }
 
 .season-toggle-icon {
@@ -889,7 +893,7 @@
   width: 26px;
   aspect-ratio: 1;
   border-radius: 50%;
-  background: rgba(169, 112, 255, 0.14);
+  background: rgba(20, 160, 133, 0.16);
   color: var(--purple-light);
   font-weight: 900;
 }
@@ -906,7 +910,7 @@
 
 .season-episodes {
   padding: 10px;
-  background: rgba(13, 17, 23, 0.62);
+  background: rgba(11, 17, 16, 0.62);
 }
 
 .episode-card {
@@ -980,9 +984,9 @@
 .skeleton {
   background: linear-gradient(
     90deg,
-    rgba(21, 29, 42, 0.72) 0%,
-    rgba(43, 54, 74, 0.94) 48%,
-    rgba(21, 29, 42, 0.72) 100%
+    rgba(21, 37, 34, 0.72) 0%,
+    rgba(37, 56, 52, 0.94) 48%,
+    rgba(21, 37, 34, 0.72) 100%
   );
   background-size: 220% 100%;
   animation: skeleton-loading 1.25s ease-in-out infinite;
@@ -1057,12 +1061,13 @@
   z-index: 20;
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  width: min(100%, 430px);
+  width: 100%;
+  max-width: 520px;
   transform: translateX(-50%);
   border: 1px solid rgba(245, 245, 245, 0.08);
   border-bottom: 0;
   border-radius: 18px 18px 0 0;
-  background: rgba(7, 11, 18, 0.92);
+  background: rgba(6, 10, 9, 0.92);
   box-shadow: 0 -16px 36px rgba(0, 0, 0, 0.36);
   backdrop-filter: blur(18px);
 }
@@ -1082,7 +1087,7 @@
 
 .bottom-nav-item.active {
   color: var(--purple-light);
-  background: linear-gradient(180deg, rgba(124, 77, 255, 0.2), transparent);
+  background: linear-gradient(180deg, rgba(15, 118, 110, 0.24), transparent);
   border-radius: 18px;
 }
 
@@ -1095,7 +1100,7 @@
 
 .toast {
   position: fixed;
-  right: max(16px, calc((100vw - 430px) / 2 + 16px));
+  right: max(16px, calc((100vw - 520px) / 2 + 16px));
   bottom: 88px;
   z-index: 30;
   max-width: min(360px, calc(100vw - 32px));
@@ -1158,10 +1163,10 @@
 .vault-icon-clock::before {
   content: "";
   position: absolute;
-  left: 9px;
-  top: 4px;
+  left: calc(50% - 1px);
+  top: 24%;
   width: 2px;
-  height: 7px;
+  height: 32%;
   background: currentColor;
   transform-origin: bottom;
 }
@@ -1169,11 +1174,12 @@
 .vault-icon-clock::after {
   content: "";
   position: absolute;
-  left: 9px;
-  top: 9px;
-  width: 6px;
+  left: calc(50% - 1px);
+  top: calc(50% - 1px);
+  width: 40%;
   height: 2px;
   background: currentColor;
+  transform-origin: left center;
 }
 
 .vault-icon-calendar::before {
@@ -1302,8 +1308,8 @@
 @media (min-width: 760px) {
   body {
     background:
-      radial-gradient(circle at 22% 12%, rgba(124, 77, 255, 0.14), transparent 32%),
-      #06090f;
+      radial-gradient(circle at 22% 12%, rgba(15, 118, 110, 0.16), transparent 32%),
+      #060a09;
   }
 
   .app-shell {

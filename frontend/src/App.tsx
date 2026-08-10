@@ -1089,7 +1089,7 @@ function App() {
                       </span>
                       <span className="continue-copy">
                         <strong>{series.title}</strong>
-                        <small>{getLatestEpisodeLabel(series)}</small>
+                        <small>Assistido até {getLatestEpisodeLabel(series)}</small>
                         <span className="progress-track">
                           <span
                             className="progress-fill"

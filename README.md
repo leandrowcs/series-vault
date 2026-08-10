@@ -43,6 +43,11 @@ Aplicativo pessoal para registrar séries de TV assistidas, inspirado em Letterb
 4. Copiar `backend/.env.example` para `backend/.env` e preencher as variáveis.
 5. Rodar a API na raiz do repositório:
    ```bash
+   uvicorn --app-dir backend app.main:app --reload --host 0.0.0.0 --port 8000
+   ```
+
+   Se estiver dentro da pasta `backend/`, use:
+   ```bash
    uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
    ```
 
