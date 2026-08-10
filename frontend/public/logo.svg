@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 220" role="img" aria-labelledby="title">
+  <title id="title">Series Vault logo</title>
+  <defs>
+    <linearGradient id="vaultGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#5EEAD4" />
+      <stop offset="52%" stop-color="#14A085" />
+      <stop offset="100%" stop-color="#0F766E" />
+    </linearGradient>
+    <filter id="softGlow" x="-20%" y="-50%" width="140%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+      <feMerge>
+        <feMergeNode in="coloredBlur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect width="500" height="220" rx="44" fill="#0B1110" />
+  <circle cx="110" cy="110" r="70" fill="#101918" stroke="#14A085" stroke-opacity="0.38" stroke-width="3" />
+  <circle cx="110" cy="110" r="60" fill="none" stroke="#0F766E" stroke-opacity="0.22" stroke-width="7" />
+  <g transform="translate(24.67 24.67) scale(0.33333)">
+    <path
+      d="M90 190c0-42 34-72 83-72 33 0 61 11 82 30l-30 43c-16-14-33-21-53-21-19 0-32 8-32 21 0 15 16 20 49 30 44 13 75 31 75 78 0 46-37 77-91 77-40 0-76-15-100-41l32-43c20 20 43 31 69 31 23 0 37-9 37-24 0-16-17-23-51-33-43-13-70-30-70-76Z"
+      fill="#E8F1EE"
+      filter="url(#softGlow)"
+    />
+    <path
+      d="M252 150h48l44 140 44-140h48L371 366h-54L252 150Z"
+      fill="url(#vaultGradient)"
+      filter="url(#softGlow)"
+    />
+    <path d="M112 400h278" stroke="#F2B84B" stroke-opacity="0.9" stroke-width="12" stroke-linecap="round" />
+  </g>
+
+  <text x="216" y="104" font-size="48" font-weight="800" font-family="Arial, sans-serif" letter-spacing="8" fill="#E8F1EE">SERIES</text>
+  <text x="216" y="160" font-size="58" font-weight="900" font-family="Arial, sans-serif" letter-spacing="8" fill="url(#vaultGradient)" filter="url(#softGlow)">VAULT</text>
+</svg>

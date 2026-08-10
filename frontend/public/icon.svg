@@ -1,29 +1,38 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">Series Vault icon</title>
   <defs>
+    <radialGradient id="bgGlow" cx="32%" cy="18%" r="76%">
+      <stop offset="0%" stop-color="#123D38" />
+      <stop offset="48%" stop-color="#0B1110" />
+      <stop offset="100%" stop-color="#060A09" />
+    </radialGradient>
     <linearGradient id="vaultGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" style="stop-color:#CFA8FF;stop-opacity:1" />
-      <stop offset="45%" style="stop-color:#A855F7;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#7C3AED;stop-opacity:1" />
+      <stop offset="0%" stop-color="#5EEAD4" />
+      <stop offset="48%" stop-color="#14A085" />
+      <stop offset="100%" stop-color="#0F766E" />
     </linearGradient>
-    <filter id="glow">
-      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+    <filter id="softGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="4" result="coloredBlur" />
       <feMerge>
-        <feMergeNode in="coloredBlur"/>
-        <feMergeNode in="SourceGraphic"/>
+        <feMergeNode in="coloredBlur" />
+        <feMergeNode in="SourceGraphic" />
       </feMerge>
     </filter>
   </defs>
-  
-  <!-- Fundo com gradiente -->
-  <rect width="512" height="512" fill="transparent" />
-  <circle cx="256" cy="256" r="220" fill="#101722" stroke="rgba(169, 112, 255, 0.35)" stroke-width="2"/>
-  
-  <!-- Glow roxo -->
-  <circle cx="256" cy="256" r="200" fill="none" stroke="rgba(124, 77, 255, 0.15)" stroke-width="20" opacity="0.3"/>
-  
-  <!-- Letra S (Series) -->
-  <text x="180" y="300" font-size="210" font-weight="800" font-family="Arial, sans-serif" fill="#F4F4F5" letter-spacing="4" filter="url(#glow)" text-anchor="middle">S</text>
-  
-  <!-- Letra V (Vault) -->
-  <text x="330" y="380" font-size="210" font-weight="900" font-family="Arial, sans-serif" fill="url(#vaultGradient)" letter-spacing="4" filter="url(#glow)" text-anchor="middle">V</text>
+
+  <rect width="512" height="512" rx="112" fill="url(#bgGlow)" />
+  <circle cx="256" cy="256" r="210" fill="#101918" stroke="#14A085" stroke-opacity="0.38" stroke-width="3" />
+  <circle cx="256" cy="256" r="180" fill="none" stroke="#0F766E" stroke-opacity="0.22" stroke-width="24" />
+
+  <path
+    d="M90 190c0-42 34-72 83-72 33 0 61 11 82 30l-30 43c-16-14-33-21-53-21-19 0-32 8-32 21 0 15 16 20 49 30 44 13 75 31 75 78 0 46-37 77-91 77-40 0-76-15-100-41l32-43c20 20 43 31 69 31 23 0 37-9 37-24 0-16-17-23-51-33-43-13-70-30-70-76Z"
+    fill="#E8F1EE"
+    filter="url(#softGlow)"
+  />
+  <path
+    d="M252 150h48l44 140 44-140h48L371 366h-54L252 150Z"
+    fill="url(#vaultGradient)"
+    filter="url(#softGlow)"
+  />
+  <path d="M112 400h278" stroke="#F2B84B" stroke-opacity="0.9" stroke-width="8" stroke-linecap="round" />
 </svg>
