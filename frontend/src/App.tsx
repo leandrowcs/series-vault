@@ -3012,17 +3012,25 @@ function App() {
                     const releasedWatchedCount = releasedEpisodes.filter(
                       (episode) => episode.watched,
                     ).length;
-                    const isReleasedSeasonComplete =
+                    const releasedRemainingCount =
+                      releasedEpisodes.length - releasedWatchedCount;
+                    const isSeasonComplete =
+                      group.episodes.length > 0 &&
+                      group.watchedCount === group.episodes.length;
+                    const isSeasonUpToDate =
+                      !isSeasonComplete &&
                       releasedEpisodes.length > 0 &&
-                      releasedWatchedCount === releasedEpisodes.length;
+                      releasedRemainingCount === 0;
                     const isSeasonButtonDisabled =
-                      releasedEpisodes.length === 0;
-                    const SeasonWatchIcon = isReleasedSeasonComplete
+                      releasedEpisodes.length === 0 || isSeasonUpToDate;
+                    const SeasonWatchIcon = isSeasonComplete
                       ? SquareCheckBig
                       : Square;
                     const seasonWatchLabel = isSeasonButtonDisabled
-                      ? "Em breve"
-                      : isReleasedSeasonComplete
+                      ? isSeasonUpToDate
+                        ? "Em dia"
+                        : "Em breve"
+                      : isSeasonComplete
                         ? "Desmarcar temporada"
                         : releasedWatchedCount > 0
                           ? "Marcar restantes"
@@ -3067,13 +3075,15 @@ function App() {
                           <button
                             type="button"
                             className={`season-watch-button ${
-                              isReleasedSeasonComplete
+                              isSeasonComplete
                                 ? "watch-button-watched"
                                 : "watch-button-unwatched"
                             }`}
                             disabled={isSeasonButtonDisabled}
                             title={
-                              isSeasonButtonDisabled
+                              isSeasonUpToDate
+                                ? "Todos os episódios lançados foram vistos. A temporada ainda não terminou."
+                                : isSeasonButtonDisabled
                                 ? "Disponível quando houver episódios lançados"
                                 : undefined
                             }
@@ -3081,7 +3091,7 @@ function App() {
                             onClick={() =>
                               setSeasonWatchState(
                                 group,
-                                !isReleasedSeasonComplete,
+                                !isSeasonComplete,
                               )
                             }
                           >
