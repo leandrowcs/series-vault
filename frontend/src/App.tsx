@@ -1636,9 +1636,15 @@ function App() {
 
   const calendarEligibleSeries = useMemo(
     () =>
-      tracked.filter(
-        (series) => getLibrarySeriesStatus(series) !== "abandoned",
-      ),
+      tracked.filter((series) => {
+        const status = getLibrarySeriesStatus(series);
+
+        return (
+          status === "watching" ||
+          status === "waiting" ||
+          status === "notStarted"
+        );
+      }),
     [tracked],
   );
 
@@ -1926,27 +1932,8 @@ function App() {
 
   const calendarMonthEpisodes = useMemo<UpcomingEpisodeItem[]>(() => {
     const byEpisode = new Map<string, UpcomingEpisodeItem>();
-    const abandonedSeriesIds = new Set(
-      tracked
-        .filter((series) => getLibrarySeriesStatus(series) === "abandoned")
-        .flatMap((series) => [series.id, series.tmdb_id]),
-    );
-    const candidateEpisodes: UpcomingEpisodeItem[] = [
-      ...calendarEvents.map((episode) => ({
-        ...episode,
-        source: "calendar" as const,
-      })),
-      ...newEpisodes.map((episode) => ({
-        ...episode,
-        source: "calendar" as const,
-      })),
-      ...cachedCalendarEpisodes,
-      ...nextWatchlistEpisodes,
-    ];
 
-    candidateEpisodes.forEach((episode) => {
-      if (abandonedSeriesIds.has(episode.series_id)) return;
-
+    cachedCalendarEpisodes.forEach((episode) => {
       const dateKey = getDateKey(episode.air_date);
       if (
         !dateKey ||
@@ -1982,12 +1969,8 @@ function App() {
       });
   }, [
     cachedCalendarEpisodes,
-    calendarEvents,
     calendarRangeEndDateKey,
     calendarRangeStartDateKey,
-    newEpisodes,
-    nextWatchlistEpisodes,
-    tracked,
   ]);
 
   const calendarEpisodeCountByDate = useMemo(() => {
