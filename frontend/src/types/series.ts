@@ -6,6 +6,12 @@ export type SearchResult = {
   poster_path?: string
 }
 
+export type TrendingSeries = SearchResult & {
+  vote_average?: number
+  vote_count?: number
+  popularity?: number
+}
+
 export type TrackedSeries = {
   id: number
   tmdb_id: number

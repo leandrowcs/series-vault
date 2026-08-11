@@ -6,7 +6,11 @@ from app.api.schemas import SeriesCreate
 from app.db.session import get_session
 from app.db.models import Series, Season, Episode, EpisodeWatch
 from app.services.sync_service import sync_series_by_tmdb_id
-from app.services.tmdb_client import tmdb_get_watch_providers, tmdb_search_by_name
+from app.services.tmdb_client import (
+    tmdb_get_trending_tv,
+    tmdb_get_watch_providers,
+    tmdb_search_by_name,
+)
 
 router = APIRouter()
 
@@ -114,6 +118,16 @@ def get_tracked_series(session: Session = Depends(get_session)) -> List[dict]:
         serialized["number_of_episodes"] = total_episodes
         result.append(serialized)
     return result
+
+
+@router.get("/trending")
+def get_trending_series(page: int = Query(1, ge=1)) -> List[dict]:
+    try:
+        return tmdb_get_trending_tv(page)
+    except httpx.RequestError as exc:
+        raise _tmdb_http_exception(exc)
+    except httpx.HTTPStatusError as exc:
+        raise HTTPException(status_code=502, detail=f"TMDb returned status {exc.response.status_code}")
 
 
 @router.post("", include_in_schema=False)

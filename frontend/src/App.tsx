@@ -44,6 +44,7 @@ import {
   SeriesVaultBackup,
   StreamingProvider,
   TopSeriesStat,
+  TrendingSeries,
   TrackedSeries,
   WatchedEpisodeRecord,
   YearStat,
@@ -81,6 +82,13 @@ type DashboardMetric = {
   icon: LucideIcon;
   layout: "compact" | "wide";
   tone: "cyan" | "purple" | "amber" | "green";
+};
+
+type LibrarySeriesGroup = {
+  id: string;
+  label: string;
+  series: TrackedSeries[];
+  collapsible: boolean;
 };
 
 type UpcomingEpisodeItem = CalendarEvent & {
@@ -396,6 +404,7 @@ function App() {
   const auth = useCloudAuth();
   const drive = useGoogleDriveBackup(auth.driveAccessToken);
   const continueScrollRef = useRef<HTMLDivElement | null>(null);
+  const trendingScrollRef = useRef<HTMLDivElement | null>(null);
   const [installPrompt, setInstallPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
   const [isAppInstalled, setIsAppInstalled] = useState(false);
@@ -403,6 +412,7 @@ function App() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
+  const [trendingSeries, setTrendingSeries] = useState<TrendingSeries[]>([]);
   const [tracked, setTracked] = useState<TrackedSeries[]>([]);
   const [selectedSeries, setSelectedSeries] = useState<TrackedSeries | null>(
     null,
@@ -427,6 +437,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [isTrackedLoading, setIsTrackedLoading] = useState(false);
   const [isCalendarLoading, setIsCalendarLoading] = useState(false);
+  const [isTrendingLoading, setIsTrendingLoading] = useState(false);
   const [isEpisodePrefetchLoading, setIsEpisodePrefetchLoading] =
     useState(false);
   const [isStatsLoading, setIsStatsLoading] = useState(false);
@@ -585,6 +596,9 @@ function App() {
     }
     if (activeTab === "home" || activeTab === "stats") {
       fetchStats();
+    }
+    if (activeTab === "home") {
+      fetchTrendingSeries();
     }
   }, [activeTab]);
 
@@ -752,6 +766,25 @@ function App() {
     } finally {
       setLoading(false);
       setIsTrackedLoading(false);
+    }
+  };
+
+  const fetchTrendingSeries = async () => {
+    if (!hasApi || trendingSeries.length > 0) return;
+
+    try {
+      setIsTrendingLoading(true);
+      const response = await api.get<TrendingSeries[]>("/series/trending");
+      setTrendingSeries(
+        getArrayResponse<TrendingSeries>(
+          response.data,
+          "séries em destaque",
+        ),
+      );
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Falha ao carregar séries em destaque"));
+    } finally {
+      setIsTrendingLoading(false);
     }
   };
 
@@ -1212,6 +1245,14 @@ function App() {
     [tracked],
   );
 
+  const suggestedTrendingSeries = useMemo(() => {
+    const trackedTmdbIds = new Set(tracked.map((series) => series.tmdb_id));
+
+    return trendingSeries
+      .filter((series) => !trackedTmdbIds.has(series.tmdb_id))
+      .slice(0, 10);
+  }, [tracked, trendingSeries]);
+
   useEffect(() => {
     if (activeTab !== "home" || !hasApi || continueWatching.length === 0) {
       return;
@@ -1405,6 +1446,8 @@ function App() {
     (isStatsLoading && !stats.overview);
   const isContinueWatchingLoading =
     isTrackedLoading && continueWatching.length === 0;
+  const isTrendingSeriesLoading =
+    isTrendingLoading && suggestedTrendingSeries.length === 0;
   const isUpcomingEpisodeLoading =
     (isCalendarLoading || isEpisodePrefetchLoading) &&
     upcomingEpisodes.length === 0;
@@ -1467,7 +1510,10 @@ function App() {
 
     if (libraryFilter === "waiting") {
       return sortSeriesByTitle(
-        tracked.filter((series) => getLibrarySeriesStatus(series) === "waiting"),
+        tracked.filter((series) => {
+          const status = getLibrarySeriesStatus(series);
+          return status === "waiting" || status === "notStarted";
+        }),
       );
     }
 
@@ -1488,9 +1534,41 @@ function App() {
     return sortSeriesByTitle(tracked);
   }, [tracked, libraryFilter]);
 
-  const groupedLibrarySeries = useMemo(() => {
+  const groupedLibrarySeries = useMemo<LibrarySeriesGroup[]>(() => {
+    if (libraryFilter === "waiting") {
+      return [
+        {
+          id: "waiting:not-started",
+          label: "Ainda não iniciadas",
+          series: sortSeriesByTitle(
+            librarySeries.filter(
+              (series) => getLibrarySeriesStatus(series) === "notStarted",
+            ),
+          ),
+          collapsible: true,
+        },
+        {
+          id: "waiting:up-to-date",
+          label: "Aguardando nova temporada",
+          series: sortSeriesByTitle(
+            librarySeries.filter(
+              (series) => getLibrarySeriesStatus(series) === "waiting",
+            ),
+          ),
+          collapsible: true,
+        },
+      ].filter((group) => group.series.length > 0);
+    }
+
     if (libraryFilter !== "all") {
-      return [{ label: "", series: librarySeries }];
+      return [
+        {
+          id: libraryFilter,
+          label: "",
+          series: librarySeries,
+          collapsible: false,
+        },
+      ];
     }
 
     return librarySeries.reduce<{ label: string; series: TrackedSeries[] }[]>(
@@ -1507,7 +1585,12 @@ function App() {
         return groups;
       },
       [],
-    );
+    ).map((group) => ({
+      id: `letter:${group.label}`,
+      label: group.label,
+      series: group.series,
+      collapsible: true,
+    }));
   }, [libraryFilter, librarySeries]);
 
   const cycleLibraryViewMode = () => {
@@ -1566,7 +1649,7 @@ function App() {
     }
 
     if (libraryFilter === "waiting") {
-      return "Nenhuma série aguardando novas temporadas.";
+      return "Nenhuma série aguardando ou ainda não iniciada.";
     }
 
     if (libraryFilter === "finished") {
@@ -1689,6 +1772,17 @@ function App() {
 
   const scrollContinueWatching = (direction: "left" | "right") => {
     const container = continueScrollRef.current;
+    if (!container) return;
+
+    const distance = Math.round(container.clientWidth * 0.78);
+    container.scrollBy({
+      left: direction === "left" ? -distance : distance,
+      behavior: "smooth",
+    });
+  };
+
+  const scrollTrendingSeries = (direction: "left" | "right") => {
+    const container = trendingScrollRef.current;
     if (!container) return;
 
     const distance = Math.round(container.clientWidth * 0.78);
@@ -1840,6 +1934,103 @@ function App() {
                     );
                   })}
             </div>
+
+            <section className="home-section">
+              <div className="section-heading">
+                <h2>Séries bombando</h2>
+                <span className="section-actions">
+                  {suggestedTrendingSeries.length > 2 && (
+                    <span className="carousel-controls">
+                      <button
+                        type="button"
+                        className="icon-button carousel-button"
+                        aria-label="Rolar séries bombando para a esquerda"
+                        onClick={() => scrollTrendingSeries("left")}
+                      >
+                        <ChevronLeft aria-hidden="true" />
+                      </button>
+                      <button
+                        type="button"
+                        className="icon-button carousel-button"
+                        aria-label="Rolar séries bombando para a direita"
+                        onClick={() => scrollTrendingSeries("right")}
+                      >
+                        <ChevronRight aria-hidden="true" />
+                      </button>
+                    </span>
+                  )}
+                </span>
+              </div>
+
+              {isTrendingSeriesLoading ? (
+                <div
+                  className="continue-watching-scroll"
+                  aria-label="Carregando séries bombando"
+                >
+                  {Array.from({ length: 5 }).map((_, index) => (
+                    <div
+                      key={`trending-skeleton-${index}`}
+                      className="continue-card continue-card-skeleton"
+                      aria-hidden="true"
+                    >
+                      <span className="continue-poster-frame skeleton" />
+                      <span className="continue-copy">
+                        <span className="skeleton skeleton-text skeleton-title" />
+                        <span className="skeleton skeleton-text skeleton-subtitle" />
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : suggestedTrendingSeries.length === 0 ? (
+                <p className="empty-state">
+                  Nenhuma sugestão fora da sua biblioteca no momento.
+                </p>
+              ) : (
+                <div
+                  ref={trendingScrollRef}
+                  className="continue-watching-scroll trending-series-scroll"
+                  onWheel={handleContinueWatchingWheel}
+                >
+                  {suggestedTrendingSeries.map((series) => (
+                    <article key={series.tmdb_id} className="trending-card">
+                      <span className="continue-poster-frame">
+                        <MediaImage
+                          path={series.poster_path}
+                          alt={`Capa de ${series.name}`}
+                          className="continue-poster"
+                          fallback="Sem capa"
+                          size="w342"
+                        />
+                        <span className="continue-card-shade" />
+                        <span className="trending-rating">
+                          <Star aria-hidden="true" />
+                          {series.vote_average
+                            ? series.vote_average.toFixed(1)
+                            : "-"}
+                        </span>
+                      </span>
+                      <span className="continue-copy">
+                        <strong>{series.name}</strong>
+                        <small>
+                          {series.first_air_date
+                            ? new Date(series.first_air_date).getFullYear()
+                            : "Sem data"}
+                        </small>
+                      </span>
+                      <button
+                        type="button"
+                        className="trending-add-button"
+                        disabled={loading}
+                        onClick={() => addSeries(series.tmdb_id)}
+                      >
+                        <BookmarkPlus aria-hidden="true" />
+                        Adicionar
+                      </button>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
 
             <section className="home-section">
               <div className="section-heading">
@@ -2097,22 +2288,21 @@ function App() {
               ) : (
                 <div className="library-groups">
                   {groupedLibrarySeries.map((group) => {
-                    const isAlphabetGroup = libraryFilter === "all" && group.label;
                     const isCollapsed =
-                      isAlphabetGroup &&
-                      collapsedLibraryGroups.has(group.label);
+                      group.collapsible &&
+                      collapsedLibraryGroups.has(group.id);
 
                     return (
                       <section
-                        key={group.label || libraryFilter}
+                        key={group.id}
                         className="library-group"
                       >
-                        {isAlphabetGroup && (
+                        {group.collapsible && (
                           <button
                             type="button"
                             className="library-group-toggle"
                             aria-expanded={!isCollapsed}
-                            onClick={() => toggleLibraryGroup(group.label)}
+                            onClick={() => toggleLibraryGroup(group.id)}
                           >
                             <ChevronDown
                               className={
