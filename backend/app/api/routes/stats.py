@@ -8,8 +8,29 @@ from app.services.stats_service import (
     get_year_stats,
     get_top_series,
 )
+from fastapi import HTTPException, Query
 
 router = APIRouter()
+
+
+@router.get("", include_in_schema=False)
+def stats_entrypoint(route: str = Query(...), session: Session = Depends(get_session)):
+    if route == "overview":
+        return get_overview_stats(session)
+
+    if route == "genres":
+        return get_genre_stats(session)
+
+    if route == "actors":
+        return get_actor_stats(session)
+
+    if route == "years":
+        return get_year_stats(session)
+
+    if route == "top-series":
+        return get_top_series(session)
+
+    raise HTTPException(status_code=404, detail="Not found")
 
 
 @router.get("/overview")

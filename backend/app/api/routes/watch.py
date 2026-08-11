@@ -1,11 +1,28 @@
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, Path, Body
+from fastapi import APIRouter, Depends, HTTPException, Path, Body, Query
 from sqlmodel import Session
 from app.db.session import get_session
 from app.api.schemas import EpisodeWatchUpdate, EpisodeWatchResponse
 from app.services.watch_service import mark_episode_watch, get_watched_episodes
 
 router = APIRouter()
+
+
+@router.patch("", include_in_schema=False)
+def update_episode_watch_entrypoint(
+    episode_id: int = Query(..., alias="episodeId", gt=0),
+    payload: EpisodeWatchUpdate = Body(...),
+    session: Session = Depends(get_session),
+) -> EpisodeWatchResponse:
+    return update_episode_watch(episode_id, payload, session)
+
+
+@router.delete("", include_in_schema=False)
+def remove_episode_watch_entrypoint(
+    episode_id: int = Query(..., alias="episodeId", gt=0),
+    session: Session = Depends(get_session),
+):
+    return remove_episode_watch(episode_id, session)
 
 
 @router.patch("/episodes/{episode_id}")

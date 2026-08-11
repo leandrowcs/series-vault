@@ -630,7 +630,13 @@ function App() {
     const fetchWatchProviders = async () => {
       try {
         const response = await api.get<StreamingProvider[]>(
-          `/series/${selectedSeries.id}/watch-providers`,
+          "/series",
+          {
+            params: {
+              route: "watch-providers",
+              seriesId: selectedSeries.id,
+            },
+          },
         );
         const providers = getArrayResponse<StreamingProvider>(
           response.data,
@@ -755,7 +761,9 @@ function App() {
     try {
       setLoading(true);
       setIsTrackedLoading(true);
-      const response = await api.get<TrackedSeries[]>("/series/tracked");
+      const response = await api.get<TrackedSeries[]>("/series", {
+        params: { route: "tracked" },
+      });
       const trackedSeries = getArrayResponse<TrackedSeries>(
         response.data,
         "séries acompanhadas",
@@ -774,7 +782,9 @@ function App() {
 
     try {
       setIsTrendingLoading(true);
-      const response = await api.get<TrendingSeries[]>("/series/trending");
+      const response = await api.get<TrendingSeries[]>("/series", {
+        params: { route: "trending" },
+      });
       setTrendingSeries(
         getArrayResponse<TrendingSeries>(
           response.data,
@@ -850,7 +860,13 @@ function App() {
 
     try {
       const response = await api.get<EpisodeDetail[]>(
-        `/series/${seriesId}/episodes`,
+        "/series",
+        {
+          params: {
+            route: "episodes",
+            seriesId,
+          },
+        },
       );
       const fetchedEpisodes = getArrayResponse<EpisodeDetail>(
         response.data,
@@ -936,7 +952,11 @@ function App() {
     try {
       if (!shouldMarkWatched) {
         if (hasApi) {
-          await api.delete(`/watch/episodes/${episode.id}`).catch(() => null);
+          await api
+            .delete("/watch", {
+              params: { episodeId: episode.id },
+            })
+            .catch(() => null);
         }
         if (auth.user) {
           await deleteCloudWatchedEpisode(auth.user.uid, episode);
@@ -944,10 +964,16 @@ function App() {
       } else {
         if (hasApi) {
           await api
-            .patch(`/watch/episodes/${episode.id}`, {
-              watched: true,
-              progress_percent: 100,
-            })
+            .patch(
+              "/watch",
+              {
+                watched: true,
+                progress_percent: 100,
+              },
+              {
+                params: { episodeId: episode.id },
+              },
+            )
             .catch(() => null);
         }
         if (auth.user && selectedSeries) {
@@ -1035,10 +1061,16 @@ function App() {
           await Promise.all(
             changedEpisodes.map((episode) =>
               api
-                .patch(`/watch/episodes/${episode.id}`, {
-                  watched: true,
-                  progress_percent: 100,
-                })
+                .patch(
+                  "/watch",
+                  {
+                    watched: true,
+                    progress_percent: 100,
+                  },
+                  {
+                    params: { episodeId: episode.id },
+                  },
+                )
                 .catch(() => null),
             ),
           );
@@ -1054,7 +1086,11 @@ function App() {
         if (hasApi) {
           await Promise.all(
             changedEpisodes.map((episode) =>
-              api.delete(`/watch/episodes/${episode.id}`).catch(() => null),
+              api
+                .delete("/watch", {
+                  params: { episodeId: episode.id },
+                })
+                .catch(() => null),
             ),
           );
         }
@@ -1107,8 +1143,8 @@ function App() {
         api.get<CalendarEvent[]>("/calendar", {
           params: { start: startDate, end: endDate },
         }),
-        api.get<CalendarNewEpisode[]>("/calendar/new-episodes", {
-          params: { since: startDate },
+        api.get<CalendarNewEpisode[]>("/calendar", {
+          params: { route: "new-episodes", since: startDate },
         }),
       ]);
       setCalendarEvents(
@@ -1143,11 +1179,21 @@ function App() {
       setIsStatsLoading(true);
       const [overviewRes, genresRes, actorsRes, yearsRes, topSeriesRes] =
         await Promise.all([
-          api.get<OverviewStats>("/stats/overview"),
-          api.get<GenreStat[]>("/stats/genres"),
-          api.get<ActorStat[]>("/stats/actors"),
-          api.get<YearStat[]>("/stats/years"),
-          api.get<TopSeriesStat[]>("/stats/top-series"),
+          api.get<OverviewStats>("/stats", {
+            params: { route: "overview" },
+          }),
+          api.get<GenreStat[]>("/stats", {
+            params: { route: "genres" },
+          }),
+          api.get<ActorStat[]>("/stats", {
+            params: { route: "actors" },
+          }),
+          api.get<YearStat[]>("/stats", {
+            params: { route: "years" },
+          }),
+          api.get<TopSeriesStat[]>("/stats", {
+            params: { route: "top-series" },
+          }),
         ]);
       setStats({
         overview: overviewRes.data,
@@ -1274,7 +1320,13 @@ function App() {
           seriesMissingEpisodes.map(async (series) => {
             try {
               const response = await api.get<EpisodeDetail[]>(
-                `/series/${series.tmdb_id}/episodes`,
+                "/series",
+                {
+                  params: {
+                    route: "episodes",
+                    seriesId: series.tmdb_id,
+                  },
+                },
               );
               const fetchedEpisodes = getArrayResponse<EpisodeDetail>(
                 response.data,

@@ -79,7 +79,32 @@ def _serialize_watch_providers(data: dict) -> list[dict]:
 
 
 @router.get("", include_in_schema=False)
-def search_series(query: str = Query(..., min_length=1)) -> List[dict]:
+def series_entrypoint(
+    query: Optional[str] = Query(default=None, min_length=1),
+    route: Optional[str] = Query(default=None),
+    page: int = Query(1, ge=1),
+    series_id: Optional[int] = Query(default=None, alias="seriesId", gt=0),
+    session: Session = Depends(get_session),
+) -> List[dict]:
+    if route == "tracked":
+        return get_tracked_series(session)
+
+    if route == "trending":
+        return get_trending_series(page)
+
+    if route == "episodes":
+        if series_id is None:
+            raise HTTPException(status_code=400, detail="seriesId query param is required")
+        return get_series_episodes(series_id, session)
+
+    if route == "watch-providers":
+        if series_id is None:
+            raise HTTPException(status_code=400, detail="seriesId query param is required")
+        return get_series_watch_providers(series_id, session)
+
+    if not query:
+        raise HTTPException(status_code=400, detail="Query is required")
+
     try:
         return tmdb_search_by_name(query)
     except httpx.RequestError as exc:
@@ -89,8 +114,14 @@ def search_series(query: str = Query(..., min_length=1)) -> List[dict]:
 
 
 @router.get("/")
-def search_series_with_slash(query: str = Query(..., min_length=1)) -> List[dict]:
-    return search_series(query)
+def search_series_with_slash(
+    query: Optional[str] = Query(default=None, min_length=1),
+    route: Optional[str] = Query(default=None),
+    page: int = Query(1, ge=1),
+    series_id: Optional[int] = Query(default=None, alias="seriesId", gt=0),
+    session: Session = Depends(get_session),
+) -> List[dict]:
+    return series_entrypoint(query=query, route=route, page=page, series_id=series_id, session=session)
 
 
 @router.get("/tracked")

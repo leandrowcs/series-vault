@@ -8,15 +8,39 @@ from app.services.calendar_service import get_calendar_events, get_new_episodes
 router = APIRouter()
 
 
-@router.get("/")
-def calendar_events(
+@router.get("", include_in_schema=False)
+def calendar_entrypoint(
+    route: Optional[str] = Query(default=None),
     start: Optional[date] = Query(default=None),
     end: Optional[date] = Query(default=None),
+    since: Optional[date] = Query(default=None),
     session: Session = Depends(get_session),
 ):
+    if route == "new-episodes":
+        if since is None:
+            raise HTTPException(status_code=400, detail="since query param is required")
+        return get_new_episodes(session, since)
+
     if start is None or end is None:
         raise HTTPException(status_code=400, detail="start and end query params are required")
     return get_calendar_events(session, start, end)
+
+
+@router.get("/")
+def calendar_events(
+    route: Optional[str] = Query(default=None),
+    start: Optional[date] = Query(default=None),
+    end: Optional[date] = Query(default=None),
+    since: Optional[date] = Query(default=None),
+    session: Session = Depends(get_session),
+):
+    return calendar_entrypoint(
+        route=route,
+        start=start,
+        end=end,
+        since=since,
+        session=session,
+    )
 
 
 @router.get("/new-episodes")
