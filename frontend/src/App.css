@@ -1797,6 +1797,9 @@
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   gap: 14px;
+  min-height: 0;
+  overflow: hidden;
+  padding: 4px 0 12px;
 }
 
 .calendar-month-panel,
@@ -1805,17 +1808,17 @@
   gap: 12px;
 }
 
+.calendar-episode-section {
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+  overflow: hidden;
+}
+
 .calendar-month-panel {
   max-height: min(25dvh, 195px);
   min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  overflow: hidden;
   padding: 2px 0;
-  scrollbar-width: none;
-}
-
-.calendar-month-panel::-webkit-scrollbar {
-  display: none;
 }
 
 .calendar-month-controls {
@@ -1927,7 +1930,7 @@
   place-items: center;
   width: 5px;
   height: 5px;
-  padding: 0 2px;
+  padding: 2px;
   border-radius: 999px;
   background: var(--green);
   color: var(--bg);
@@ -1947,7 +1950,7 @@
   align-items: center;
   gap: 8px;
   min-height: 0;
-  padding: 0 2px;
+  padding: 2px;
 }
 
 .calendar-list-heading h2 {
@@ -1966,6 +1969,15 @@
 .calendar-episode-list {
   display: grid;
   gap: 10px;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: 12px;
+  scrollbar-width: none;
+}
+
+.calendar-episode-list::-webkit-scrollbar {
+  display: none;
 }
 
 .calendar-episode-card {

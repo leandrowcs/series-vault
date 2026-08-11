@@ -130,6 +130,11 @@ export type WatchedEpisodeRecord = {
   episode_number?: number
 }
 
+export type UpcomingEpisodeItem = CalendarEvent & {
+  source: 'calendar' | 'watchlist'
+  series?: TrackedSeries
+}
+
 export type SeriesVaultBackup = {
   version: 1
   trackedSeries: TrackedSeries[]
