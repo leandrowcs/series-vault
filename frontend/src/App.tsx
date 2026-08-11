@@ -257,7 +257,7 @@ const getCalendarDays = (monthDate: Date): CalendarDayCell[] => {
   calendarStart.setDate(monthStart.getDate() - monthStart.getDay());
 
   const visibleDays =
-    Math.ceil((calendarStart.getDay() + monthEnd.getDate()) / 7) * 7;
+    Math.ceil((monthStart.getDay() + monthEnd.getDate()) / 7) * 7;
 
   return Array.from({ length: visibleDays }, (_, index) => {
     const date = new Date(calendarStart);
@@ -726,15 +726,12 @@ function App() {
 
   useEffect(() => {
     if (activeTab === "home" || activeTab === "calendar") {
-      const today = new Date();
-      const targetMonth =
-        activeTab === "calendar" ? calendarMonth : getMonthStart(today);
-      const startDate = isSameMonth(targetMonth, today)
-        ? toDateKey(today)
-        : toDateKey(getMonthStart(targetMonth));
-      const endDate = toDateKey(getMonthEnd(targetMonth));
+      const { startDate, endDate } = getCalendarFetchRange(activeTab);
 
       fetchCalendar(startDate, endDate);
+    }
+    if (activeTab === "tracked") {
+      fetchTracked();
     }
     if (activeTab === "home" || activeTab === "stats") {
       fetchStats();
@@ -919,8 +916,8 @@ function App() {
     }
   };
 
-  const fetchTrendingSeries = async () => {
-    if (!hasApi || trendingSeries.length > 0) return;
+  const fetchTrendingSeries = async (force = false) => {
+    if (!hasApi || (!force && trendingSeries.length > 0)) return;
 
     try {
       setIsTrendingLoading(true);
@@ -1518,6 +1515,46 @@ function App() {
     }
   };
 
+  const getCalendarFetchRange = (tab: ActiveTab) => {
+    const today = new Date();
+    const targetMonth =
+      tab === "calendar" ? calendarMonth : getMonthStart(today);
+    const startDate = isSameMonth(targetMonth, today)
+      ? toDateKey(today)
+      : toDateKey(getMonthStart(targetMonth));
+    const endDate = toDateKey(getMonthEnd(targetMonth));
+
+    return { startDate, endDate };
+  };
+
+  const refreshTabData = async (tab: ActiveTab) => {
+    setError("");
+
+    if (tab === "home") {
+      const { startDate, endDate } = getCalendarFetchRange(tab);
+      await Promise.all([
+        fetchTracked(),
+        fetchCalendar(startDate, endDate),
+        fetchStats(),
+        fetchTrendingSeries(true),
+      ]);
+      return;
+    }
+
+    if (tab === "tracked") {
+      await fetchTracked();
+      return;
+    }
+
+    if (tab === "calendar") {
+      const { startDate, endDate } = getCalendarFetchRange(tab);
+      await fetchCalendar(startDate, endDate);
+      return;
+    }
+
+    await fetchStats();
+  };
+
   const syncLabel = {
     idle: auth.isConfigured ? "Cloud pronto" : "Cloud não configurado",
     syncing: "Sincronizando",
@@ -1831,14 +1868,25 @@ function App() {
   );
 
   const calendarMonthEpisodes = useMemo<UpcomingEpisodeItem[]>(() => {
-    const byEpisode = new Map<string, CalendarEvent | CalendarNewEpisode>();
+    const byEpisode = new Map<string, UpcomingEpisodeItem>();
     const abandonedSeriesIds = new Set(
       tracked
         .filter((series) => getLibrarySeriesStatus(series) === "abandoned")
         .flatMap((series) => [series.id, series.tmdb_id]),
     );
+    const candidateEpisodes: UpcomingEpisodeItem[] = [
+      ...calendarEvents.map((episode) => ({
+        ...episode,
+        source: "calendar" as const,
+      })),
+      ...newEpisodes.map((episode) => ({
+        ...episode,
+        source: "calendar" as const,
+      })),
+      ...nextWatchlistEpisodes,
+    ];
 
-    [...calendarEvents, ...newEpisodes].forEach((episode) => {
+    candidateEpisodes.forEach((episode) => {
       if (abandonedSeriesIds.has(episode.series_id)) return;
 
       const dateKey = getDateKey(episode.air_date);
@@ -1873,16 +1921,13 @@ function App() {
           String(episodeB.series_title ?? ""),
           "pt-BR",
         );
-      })
-      .map((episode) => ({
-        ...episode,
-        source: "calendar",
-      }));
+      });
   }, [
     calendarEvents,
     calendarRangeEndDateKey,
     calendarRangeStartDateKey,
     newEpisodes,
+    nextWatchlistEpisodes,
     tracked,
   ]);
 
@@ -3723,6 +3768,12 @@ function App() {
                 if (item.id === "search") {
                   setIsSearchOpen((current) => !current);
                   setError("");
+                  return;
+                }
+
+                if (item.id === activeTab) {
+                  void refreshTabData(item.id);
+                  setIsSearchOpen(false);
                   return;
                 }
 

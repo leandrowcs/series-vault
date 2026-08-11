@@ -1806,7 +1806,7 @@
 }
 
 .calendar-month-panel {
-  max-height: min(20dvh, 148px);
+  max-height: min(25dvh, 180px);
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -1945,17 +1945,22 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 12px;
-  min-height: 42px;
+  gap: 8px;
+  min-height: 0;
+  padding: 0 2px;
 }
 
 .calendar-list-heading h2 {
   margin: 0;
   overflow: hidden;
-  font-size: 0.98rem;
-  line-height: 1.2;
+  font-size: 0.82rem;
+  line-height: 1.1;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.calendar-list-heading .icon-button {
+  width: 30px;
 }
 
 .calendar-episode-list {
