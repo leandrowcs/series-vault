@@ -2825,16 +2825,18 @@ function App() {
                       : "-"}
                   </span>
                 </div>
+              </div>
+              <div className="series-modal-actions">
+                <button
+                  type="button"
+                  className="icon-button series-modal-close"
+                  aria-label="Fechar detalhes da série"
+                  onClick={() => setSelectedSeries(null)}
+                >
+                  <X aria-hidden="true" />
+                </button>
                 {renderSeriesActionSelect(selectedSeries, "modal")}
               </div>
-              <button
-                type="button"
-                className="icon-button series-modal-close"
-                aria-label="Fechar detalhes da série"
-                onClick={() => setSelectedSeries(null)}
-              >
-                <X aria-hidden="true" />
-              </button>
             </div>
 
             <div className="series-modal-tabs" role="tablist">

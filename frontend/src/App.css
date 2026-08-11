@@ -1094,21 +1094,59 @@
   min-height: 38px;
   border: 1px solid rgba(20, 160, 133, 0.38);
   border-radius: 8px;
-  background: rgba(15, 118, 110, 0.18);
+  appearance: none;
+  background:
+    linear-gradient(45deg, transparent 50%, var(--purple-light) 50%),
+    linear-gradient(135deg, var(--purple-light) 50%, transparent 50%),
+    linear-gradient(180deg, rgba(21, 37, 34, 0.96), rgba(11, 17, 16, 0.94));
+  background-position:
+    calc(100% - 16px) 50%,
+    calc(100% - 11px) 50%,
+    0 0;
+  background-repeat: no-repeat;
+  background-size:
+    5px 5px,
+    5px 5px,
+    100% 100%;
   color: var(--text);
   font-size: 0.76rem;
   font-weight: 900;
   outline: none;
+  padding-right: 30px;
 }
 
 .series-action-select:hover,
 .series-action-select:focus {
   border-color: var(--border-strong);
-  background: rgba(15, 118, 110, 0.26);
+  background:
+    linear-gradient(45deg, transparent 50%, var(--purple-light) 50%),
+    linear-gradient(135deg, var(--purple-light) 50%, transparent 50%),
+    linear-gradient(180deg, rgba(24, 48, 43, 0.98), rgba(13, 28, 25, 0.96));
+  background-position:
+    calc(100% - 16px) 50%,
+    calc(100% - 11px) 50%,
+    0 0;
+  background-repeat: no-repeat;
+  background-size:
+    5px 5px,
+    5px 5px,
+    100% 100%;
+}
+
+.series-action-select option {
+  background: var(--surface-strong);
+  color: var(--text);
+}
+
+.series-action-select option:hover,
+.series-action-select option:focus,
+.series-action-select option:checked {
+  background: var(--primary-hover);
+  color: var(--text);
 }
 
 .series-action-select-modal {
-  width: fit-content;
+  width: 124px;
   max-width: 100%;
 }
 
@@ -1301,7 +1339,7 @@
 .series-modal-hero {
   position: relative;
   display: grid;
-  grid-template-columns: 92px minmax(0, 1fr) 42px;
+  grid-template-columns: 92px minmax(0, 1fr) auto;
   align-items: end;
   gap: 13px;
   padding: 14px;
@@ -1371,6 +1409,19 @@
   align-self: start;
   border-color: var(--border);
   background: rgba(6, 10, 9, 0.62);
+}
+
+.series-modal-actions {
+  align-self: end;
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+}
+
+.series-modal-actions .series-modal-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
 }
 
 .series-modal-tabs {
