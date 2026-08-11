@@ -2498,8 +2498,8 @@ function App() {
         )}
 
         {activeTab === "tracked" && (
-          <section className="library-view">
-            <div className="library-sticky">
+          <section className="library-view page-view">
+            <div className="library-sticky page-sticky">
               <div className="library-header">
                 <div className="page-title-block">
                   <div className="brand-mark brand-mark-small" aria-label="Series Vault">
@@ -2626,175 +2626,184 @@ function App() {
         )}
 
         {activeTab === "calendar" && (
-          <section className="panel grid-layout">
-            <div className="page-header">
-              <div className="page-title-block">
-                <div className="brand-mark brand-mark-small" aria-label="Series Vault">
-                  <span className="series">Series</span>
-                  <strong className="vault">Vault</strong>
+          <section className="calendar-view page-view">
+            <div className="library-sticky page-sticky">
+              <div className="page-header">
+                <div className="page-title-block">
+                  <div className="brand-mark brand-mark-small" aria-label="Series Vault">
+                    <span className="series">Series</span>
+                    <strong className="vault">Vault</strong>
+                  </div>
+                  <h1>Calendário</h1>
                 </div>
-                <h1>Calendário</h1>
               </div>
             </div>
 
-            <div className="panel-inner">
-              <h2>Lançamentos próximos</h2>
-              {calendarEvents.length === 0 ? (
-                <p className="empty-state">
-                  Nenhum lançamento encontrado para os próximos 7 dias.
-                </p>
-              ) : (
-                calendarEvents.map((item, index) => (
-                  <div
-                    key={index}
-                    className="card card-row media-card compact-media-card"
-                  >
-                    <MediaImage
-                      path={item.still_path ?? item.series_poster_path}
-                      alt={`Imagem de ${item.title ?? item.series_title ?? "episódio"}`}
-                      className="calendar-thumb"
-                      fallback="Sem imagem"
-                      size="w300"
-                    />
-                    <div className="card-copy">
-                      <strong>{item.series_title}</strong>
-                      <p>
-                        S{item.season_number}E{item.episode_number} ·{" "}
-                        {formatDate(item.air_date)}
-                      </p>
-                      <p className="item-description">{item.title}</p>
+            <div className="page-scroll-content grid-layout">
+              <div className="panel-inner">
+                <h2>Lançamentos próximos</h2>
+                {calendarEvents.length === 0 ? (
+                  <p className="empty-state">
+                    Nenhum lançamento encontrado para os próximos 7 dias.
+                  </p>
+                ) : (
+                  calendarEvents.map((item, index) => (
+                    <div
+                      key={index}
+                      className="card card-row media-card compact-media-card"
+                    >
+                      <MediaImage
+                        path={item.still_path ?? item.series_poster_path}
+                        alt={`Imagem de ${item.title ?? item.series_title ?? "episódio"}`}
+                        className="calendar-thumb"
+                        fallback="Sem imagem"
+                        size="w300"
+                      />
+                      <div className="card-copy">
+                        <strong>{item.series_title}</strong>
+                        <p>
+                          S{item.season_number}E{item.episode_number} ·{" "}
+                          {formatDate(item.air_date)}
+                        </p>
+                        <p className="item-description">{item.title}</p>
+                      </div>
                     </div>
-                  </div>
-                ))
-              )}
-            </div>
+                  ))
+                )}
+              </div>
 
-            <div className="panel-inner">
-              <h2>Novos episódios</h2>
-              {newEpisodes.length === 0 ? (
-                <p className="empty-state">
-                  Nenhum episódio novo registrado desde o início do período.
-                </p>
-              ) : (
-                newEpisodes.map((episode) => (
-                  <div
-                    key={episode.episode_id}
-                    className="card card-row media-card compact-media-card"
-                  >
-                    <MediaImage
-                      path={episode.still_path ?? episode.series_poster_path}
-                      alt={`Imagem de ${episode.title ?? "episódio"}`}
-                      className="calendar-thumb"
-                      fallback="Sem imagem"
-                      size="w300"
-                    />
-                    <div className="card-copy">
-                      <strong>
-                        S{episode.season_number}E{episode.episode_number}:{" "}
-                        {episode.title ?? "Sem título"}
-                      </strong>
-                      <p>{formatDate(episode.air_date)}</p>
+              <div className="panel-inner">
+                <h2>Novos episódios</h2>
+                {newEpisodes.length === 0 ? (
+                  <p className="empty-state">
+                    Nenhum episódio novo registrado desde o início do período.
+                  </p>
+                ) : (
+                  newEpisodes.map((episode) => (
+                    <div
+                      key={episode.episode_id}
+                      className="card card-row media-card compact-media-card"
+                    >
+                      <MediaImage
+                        path={episode.still_path ?? episode.series_poster_path}
+                        alt={`Imagem de ${episode.title ?? "episódio"}`}
+                        className="calendar-thumb"
+                        fallback="Sem imagem"
+                        size="w300"
+                      />
+                      <div className="card-copy">
+                        <strong>
+                          S{episode.season_number}E{episode.episode_number}:{" "}
+                          {episode.title ?? "Sem título"}
+                        </strong>
+                        <p>{formatDate(episode.air_date)}</p>
+                      </div>
                     </div>
-                  </div>
-                ))
-              )}
+                  ))
+                )}
+              </div>
             </div>
           </section>
         )}
 
         {activeTab === "stats" && (
-          <section className="panel stats-grid">
-            <div className="page-header">
-              <div className="page-title-block">
-                <div className="brand-mark brand-mark-small" aria-label="Series Vault">
-                  <span className="series">Series</span>
-                  <strong className="vault">Vault</strong>
+          <section className="stats-view page-view">
+            <div className="library-sticky page-sticky">
+              <div className="page-header">
+                <div className="page-title-block">
+                  <div className="brand-mark brand-mark-small" aria-label="Series Vault">
+                    <span className="series">Series</span>
+                    <strong className="vault">Vault</strong>
+                  </div>
+                  <h1>Estatísticas</h1>
                 </div>
-                <h1>Estatísticas</h1>
               </div>
             </div>
 
-            <div className="stat-card">
-              <h3>Visão geral</h3>
-              <p>
-                {isStatsLoading &&
-                !stats.overview &&
-                watchedRecords.length === 0
-                  ? "..."
-                  : `${totalWatchedEpisodes} episódios assistidos`}
-              </p>
-              <p>
-                {isStatsLoading &&
-                !stats.overview &&
-                watchedRecords.length === 0
-                  ? ""
-                  : `${totalRuntimeMinutes} minutos no total`}
-              </p>
-            </div>
+            <div className="page-scroll-content stats-grid">
+              <div className="stat-card">
+                <h3>Visão geral</h3>
+                <p>
+                  {isStatsLoading &&
+                  !stats.overview &&
+                  watchedRecords.length === 0
+                    ? "..."
+                    : `${totalWatchedEpisodes} episódios assistidos`}
+                </p>
+                <p>
+                  {isStatsLoading &&
+                  !stats.overview &&
+                  watchedRecords.length === 0
+                    ? ""
+                    : `${totalRuntimeMinutes} minutos no total`}
+                </p>
+              </div>
 
-            <div className="stat-card">
-              <h3>Gêneros</h3>
-              <ol>
-                {stats.genres.slice(0, 6).map((item) => (
-                  <li key={item.genre}>
-                    {item.genre}: {item.count}
-                  </li>
-                ))}
-              </ol>
-            </div>
+              <div className="stat-card">
+                <h3>Gêneros</h3>
+                <ol>
+                  {stats.genres.slice(0, 6).map((item) => (
+                    <li key={item.genre}>
+                      {item.genre}: {item.count}
+                    </li>
+                  ))}
+                </ol>
+              </div>
 
-            <div className="stat-card">
-              <h3>Atores</h3>
-              <ol className="image-list">
-                {stats.actors.slice(0, 6).map((item) => (
-                  <li key={item.actor}>
-                    <MediaImage
-                      path={item.profile_path}
-                      alt={`Foto de ${item.actor}`}
-                      className="profile-thumb"
-                      fallback={item.actor.slice(0, 1)}
-                      size="w185"
-                    />
-                    <span>
-                      {item.actor}: {item.count}
-                    </span>
-                  </li>
-                ))}
-              </ol>
-            </div>
+              <div className="stat-card">
+                <h3>Atores</h3>
+                <ol className="image-list">
+                  {stats.actors.slice(0, 6).map((item) => (
+                    <li key={item.actor}>
+                      <MediaImage
+                        path={item.profile_path}
+                        alt={`Foto de ${item.actor}`}
+                        className="profile-thumb"
+                        fallback={item.actor.slice(0, 1)}
+                        size="w185"
+                      />
+                      <span>
+                        {item.actor}: {item.count}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
 
-            <div className="stat-card">
-              <h3>Anos</h3>
-              <ol>
-                {stats.years.slice(0, 6).map((item) => (
-                  <li key={item.year}>
-                    {item.year}: {item.count}
-                  </li>
-                ))}
-              </ol>
-            </div>
+              <div className="stat-card">
+                <h3>Anos</h3>
+                <ol>
+                  {stats.years.slice(0, 6).map((item) => (
+                    <li key={item.year}>
+                      {item.year}: {item.count}
+                    </li>
+                  ))}
+                </ol>
+              </div>
 
-            <div className="stat-card wide-card">
-              <h3>Séries mais assistidas</h3>
-              <ol className="poster-list">
-                {stats.topSeries.slice(0, 8).map((item) => (
-                  <li key={item.series}>
-                    <MediaImage
-                      path={item.poster_path}
-                      alt={`Capa de ${item.series}`}
-                      className="mini-poster"
-                      fallback="Sem capa"
-                      size="w185"
-                    />
-                    <span>
-                      {item.series}: {item.count}
-                    </span>
-                  </li>
-                ))}
-              </ol>
+              <div className="stat-card wide-card">
+                <h3>Séries mais assistidas</h3>
+                <ol className="poster-list">
+                  {stats.topSeries.slice(0, 8).map((item) => (
+                    <li key={item.series}>
+                      <MediaImage
+                        path={item.poster_path}
+                        alt={`Capa de ${item.series}`}
+                        className="mini-poster"
+                        fallback="Sem capa"
+                        size="w185"
+                      />
+                      <span>
+                        {item.series}: {item.count}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
             </div>
           </section>
         )}
+
       </main>
 
       {selectedSeries && (

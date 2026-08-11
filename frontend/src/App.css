@@ -21,11 +21,12 @@
   position: relative;
   width: 100%;
   max-width: 520px;
+  height: 100dvh;
   min-height: 100dvh;
   margin: 0 auto;
   padding: calc(env(safe-area-inset-top, 0px) + 28px) 18px 112px;
   overflow-x: hidden;
-  overflow-y: visible;
+  overflow-y: hidden;
   background:
     radial-gradient(circle at 18% -8%, rgba(15, 118, 110, 0.28), transparent 28%),
     radial-gradient(circle at 92% 4%, rgba(56, 189, 248, 0.1), transparent 24%),
@@ -37,6 +38,16 @@
 .app-main {
   display: grid;
   gap: 18px;
+  height: 100%;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+
+.app-main::-webkit-scrollbar {
+  display: none;
 }
 
 .home-header {
@@ -253,6 +264,20 @@
   gap: 12px;
 }
 
+.home-view {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+}
+
+.home-view::-webkit-scrollbar,
+.library-tab-content::-webkit-scrollbar,
+.page-scroll-content::-webkit-scrollbar {
+  display: none;
+}
+
 .metric-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -361,12 +386,18 @@
 
 .library-view {
   display: grid;
-  gap: 14px;
+  gap: 10px;
+}
+
+.page-view {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .library-sticky {
-  position: sticky;
-  top: 0;
   z-index: 12;
   display: grid;
   gap: 2px;
@@ -375,6 +406,12 @@
     linear-gradient(180deg, var(--bg) 0%, rgba(11, 17, 16, 0.96) 72%, rgba(11, 17, 16, 0.86) 100%);
   backdrop-filter: blur(16px);
   border-radius: 10px;
+}
+
+.page-sticky {
+  position: relative;
+  top: auto;
+  flex: 0 0 auto;
 }
 
 .library-header {
@@ -486,7 +523,20 @@
 
 .library-tab-content {
   min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 4px 0 12px;
+  scrollbar-width: none;
   will-change: opacity, transform;
+}
+
+.page-scroll-content {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 4px 0 12px;
+  scrollbar-width: none;
 }
 
 .library-tab-content.slide-left {
@@ -2079,6 +2129,7 @@
   }
 
   .app-shell {
+    height: calc(100dvh - 32px);
     min-height: calc(100dvh - 32px);
     margin-top: 16px;
     margin-bottom: 16px;
