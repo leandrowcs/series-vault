@@ -1634,6 +1634,14 @@ function App() {
     [tracked],
   );
 
+  const calendarEligibleSeries = useMemo(
+    () =>
+      tracked.filter(
+        (series) => getLibrarySeriesStatus(series) !== "abandoned",
+      ),
+    [tracked],
+  );
+
   const suggestedTrendingSeries = useMemo(() => {
     const trackedTmdbIds = new Set(tracked.map((series) => series.tmdb_id));
 
@@ -1643,12 +1651,21 @@ function App() {
   }, [tracked, trendingSeries]);
 
   useEffect(() => {
-    if (activeTab !== "home" || !hasApi || continueWatching.length === 0) {
+    if (
+      (activeTab !== "home" && activeTab !== "calendar") ||
+      !hasApi
+    ) {
       return;
     }
 
-    const seriesMissingEpisodes = continueWatching
-      .slice(0, 6)
+    const prefetchSeries =
+      activeTab === "calendar"
+        ? calendarEligibleSeries
+        : continueWatching.slice(0, 6);
+
+    if (prefetchSeries.length === 0) return;
+
+    const seriesMissingEpisodes = prefetchSeries
       .filter((series) => !episodeCache[String(series.tmdb_id)]);
 
     if (seriesMissingEpisodes.length === 0) return;
@@ -1720,6 +1737,7 @@ function App() {
     };
   }, [
     activeTab,
+    calendarEligibleSeries,
     cloudWatchedRecords,
     continueWatching,
     episodeCache,
@@ -1867,6 +1885,45 @@ function App() {
     [calendarMonth],
   );
 
+  const cachedCalendarEpisodes = useMemo<UpcomingEpisodeItem[]>(() => {
+    return calendarEligibleSeries.flatMap((series) => {
+      const seriesEpisodes = episodeCache[String(series.tmdb_id)] ?? [];
+
+      return seriesEpisodes
+        .filter((episode) => episode.season_number > 0)
+        .filter((episode) => {
+          const dateKey = getDateKey(episode.air_date);
+
+          return (
+            Boolean(dateKey) &&
+            dateKey! >= calendarRangeStartDateKey &&
+            dateKey! <= calendarRangeEndDateKey
+          );
+        })
+        .map((episode) => ({
+          source: "watchlist" as const,
+          series,
+          episode_id: episode.id,
+          series_id: series.id,
+          series_title: series.title,
+          season_number: episode.season_number,
+          episode_number: episode.episode_number,
+          title: episode.title,
+          air_date: episode.air_date,
+          still_path: episode.still_path,
+          series_poster_path: series.poster_path,
+          watched:
+            episode.watched || watchedEpisodeKeys.has(getEpisodeKey(episode)),
+        }));
+    });
+  }, [
+    calendarEligibleSeries,
+    calendarRangeEndDateKey,
+    calendarRangeStartDateKey,
+    episodeCache,
+    watchedEpisodeKeys,
+  ]);
+
   const calendarMonthEpisodes = useMemo<UpcomingEpisodeItem[]>(() => {
     const byEpisode = new Map<string, UpcomingEpisodeItem>();
     const abandonedSeriesIds = new Set(
@@ -1883,6 +1940,7 @@ function App() {
         ...episode,
         source: "calendar" as const,
       })),
+      ...cachedCalendarEpisodes,
       ...nextWatchlistEpisodes,
     ];
 
@@ -1899,8 +1957,8 @@ function App() {
       }
 
       const key = [
-        episode.episode_id,
-        episode.series_id,
+        getDateKey(episode.air_date),
+        String(episode.series_title ?? episode.series_id).toLowerCase(),
         episode.season_number,
         episode.episode_number,
       ].join("-");
@@ -1923,6 +1981,7 @@ function App() {
         );
       });
   }, [
+    cachedCalendarEpisodes,
     calendarEvents,
     calendarRangeEndDateKey,
     calendarRangeStartDateKey,
@@ -3026,7 +3085,7 @@ function App() {
                   )}
                 </div>
 
-                {isCalendarLoading ? (
+                {isCalendarLoading || isEpisodePrefetchLoading ? (
                   <div
                     className="calendar-episode-card calendar-episode-card-skeleton"
                     aria-hidden="true"
