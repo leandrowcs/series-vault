@@ -107,6 +107,13 @@ type UpcomingEpisodeItem = CalendarEvent & {
   series?: TrackedSeries;
 };
 
+type CalendarDayCell = {
+  date: Date;
+  dateKey: string;
+  dayNumber: number;
+  isCurrentMonth: boolean;
+};
+
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
@@ -168,10 +175,100 @@ const MediaImage = ({
 
 const formatDate = (dateString?: string) => {
   if (!dateString) return "-";
-  return new Date(dateString).toLocaleDateString("pt-BR", {
+  const normalizedDate = dateString.trim();
+  const dateOnlyMatch = normalizedDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const date = dateOnlyMatch
+    ? new Date(
+        Number(dateOnlyMatch[1]),
+        Number(dateOnlyMatch[2]) - 1,
+        Number(dateOnlyMatch[3]),
+      )
+    : new Date(normalizedDate);
+
+  if (Number.isNaN(date.getTime())) return "-";
+
+  return date.toLocaleDateString("pt-BR", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
+  });
+};
+
+const toDateKey = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+};
+
+const getDateKey = (dateString?: string) => {
+  const normalizedDate = dateString?.trim();
+  if (!normalizedDate) return undefined;
+
+  const isoDateMatch = normalizedDate.match(/^\d{4}-\d{2}-\d{2}/);
+  if (isoDateMatch) return isoDateMatch[0];
+
+  const parsedDate = new Date(normalizedDate);
+  if (Number.isNaN(parsedDate.getTime())) return undefined;
+
+  return toDateKey(parsedDate);
+};
+
+const getMonthStart = (date: Date) =>
+  new Date(date.getFullYear(), date.getMonth(), 1);
+
+const getMonthEnd = (date: Date) =>
+  new Date(date.getFullYear(), date.getMonth() + 1, 0);
+
+const addMonths = (date: Date, months: number) =>
+  new Date(date.getFullYear(), date.getMonth() + months, 1);
+
+const isSameMonth = (firstDate: Date, secondDate: Date) =>
+  firstDate.getFullYear() === secondDate.getFullYear() &&
+  firstDate.getMonth() === secondDate.getMonth();
+
+const formatMonthLabel = (date: Date) => {
+  const label = date.toLocaleDateString("pt-BR", {
+    month: "long",
+    year: "numeric",
+  });
+
+  return label.charAt(0).toLocaleUpperCase("pt-BR") + label.slice(1);
+};
+
+const formatLongDate = (dateString?: string) => {
+  const dateKey = getDateKey(dateString);
+  if (!dateKey) return "-";
+
+  const [year, month, day] = dateKey.split("-").map(Number);
+
+  return new Date(year, month - 1, day).toLocaleDateString("pt-BR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+};
+
+const getCalendarDays = (monthDate: Date): CalendarDayCell[] => {
+  const monthStart = getMonthStart(monthDate);
+  const monthEnd = getMonthEnd(monthDate);
+  const calendarStart = new Date(monthStart);
+  calendarStart.setDate(monthStart.getDate() - monthStart.getDay());
+
+  const visibleDays =
+    Math.ceil((calendarStart.getDay() + monthEnd.getDate()) / 7) * 7;
+
+  return Array.from({ length: visibleDays }, (_, index) => {
+    const date = new Date(calendarStart);
+    date.setDate(calendarStart.getDate() + index);
+
+    return {
+      date,
+      dateKey: toDateKey(date),
+      dayNumber: date.getDate(),
+      isCurrentMonth: isSameMonth(date, monthDate),
+    };
   });
 };
 
@@ -456,6 +553,12 @@ function App() {
   const [episodes, setEpisodes] = useState<EpisodeDetail[]>([]);
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
   const [newEpisodes, setNewEpisodes] = useState<CalendarNewEpisode[]>([]);
+  const [calendarMonth, setCalendarMonth] = useState(() =>
+    getMonthStart(new Date()),
+  );
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState<
+    string | null
+  >(null);
   const [stats, setStats] = useState({
     overview: null as OverviewStats | null,
     genres: [] as GenreStat[],
@@ -621,7 +724,15 @@ function App() {
 
   useEffect(() => {
     if (activeTab === "home" || activeTab === "calendar") {
-      fetchCalendar();
+      const today = new Date();
+      const targetMonth =
+        activeTab === "calendar" ? calendarMonth : getMonthStart(today);
+      const startDate = isSameMonth(targetMonth, today)
+        ? toDateKey(today)
+        : toDateKey(getMonthStart(targetMonth));
+      const endDate = toDateKey(getMonthEnd(targetMonth));
+
+      fetchCalendar(startDate, endDate);
     }
     if (activeTab === "home" || activeTab === "stats") {
       fetchStats();
@@ -629,7 +740,7 @@ function App() {
     if (activeTab === "home") {
       fetchTrendingSeries();
     }
-  }, [activeTab]);
+  }, [activeTab, calendarMonth]);
 
   useEffect(() => {
     if (selectedSeries) {
@@ -1323,17 +1434,12 @@ function App() {
     });
   };
 
-  const fetchCalendar = async () => {
+  const fetchCalendar = async (startDate: string, endDate: string) => {
     if (!hasApi) {
       setCalendarEvents([]);
       setNewEpisodes([]);
       return;
     }
-
-    const today = new Date();
-    const end = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
-    const startDate = today.toISOString().slice(0, 10);
-    const endDate = end.toISOString().slice(0, 10);
 
     try {
       setIsCalendarLoading(true);
@@ -1709,6 +1815,71 @@ function App() {
     (isCalendarLoading || isEpisodePrefetchLoading) &&
     upcomingEpisodes.length === 0;
 
+  const todayDateKey = toDateKey(new Date());
+  const isCalendarAtCurrentMonth = isSameMonth(calendarMonth, new Date());
+  const canOpenPreviousCalendarMonth = !isCalendarAtCurrentMonth;
+  const calendarMonthLabel = formatMonthLabel(calendarMonth);
+  const calendarDays = useMemo(
+    () => getCalendarDays(calendarMonth),
+    [calendarMonth],
+  );
+
+  const calendarMonthEpisodes = useMemo<UpcomingEpisodeItem[]>(() => {
+    const abandonedSeriesIds = new Set(
+      tracked
+        .filter((series) => getLibrarySeriesStatus(series) === "abandoned")
+        .flatMap((series) => [series.id, series.tmdb_id]),
+    );
+
+    return calendarEvents
+      .filter((episode) => !abandonedSeriesIds.has(episode.series_id))
+      .filter((episode) => Boolean(getDateKey(episode.air_date)))
+      .sort((episodeA, episodeB) => {
+        const dateA = getDateKey(episodeA.air_date) ?? "";
+        const dateB = getDateKey(episodeB.air_date) ?? "";
+
+        if (dateA !== dateB) return dateA.localeCompare(dateB);
+
+        return String(episodeA.series_title ?? "").localeCompare(
+          String(episodeB.series_title ?? ""),
+          "pt-BR",
+        );
+      })
+      .map((episode) => ({
+        ...episode,
+        source: "calendar",
+      }));
+  }, [calendarEvents, tracked]);
+
+  const calendarEpisodeCountByDate = useMemo(() => {
+    const countByDate = new Map<string, number>();
+
+    calendarMonthEpisodes.forEach((episode) => {
+      const dateKey = getDateKey(episode.air_date);
+      if (!dateKey) return;
+
+      countByDate.set(dateKey, (countByDate.get(dateKey) ?? 0) + 1);
+    });
+
+    return countByDate;
+  }, [calendarMonthEpisodes]);
+
+  const visibleCalendarEpisodes = selectedCalendarDate
+    ? calendarMonthEpisodes.filter(
+        (episode) => getDateKey(episode.air_date) === selectedCalendarDate,
+      )
+    : calendarMonthEpisodes;
+  const calendarListHeading = selectedCalendarDate
+    ? formatLongDate(selectedCalendarDate)
+    : isCalendarAtCurrentMonth
+      ? `Hoje até ${formatDate(toDateKey(getMonthEnd(calendarMonth)))}`
+      : formatMonthLabel(calendarMonth);
+  const calendarEmptyMessage = selectedCalendarDate
+    ? "Nenhum episódio encontrado para o dia selecionado."
+    : isCalendarAtCurrentMonth
+      ? "Nenhum lançamento encontrado de hoje até o fim do mês."
+      : "Nenhum lançamento previsto para este mês.";
+
   const dashboardMetrics: DashboardMetric[] = [
     {
       label: "Séries",
@@ -1849,6 +2020,30 @@ function App() {
       collapsible: true,
     }));
   }, [libraryFilter, librarySeries]);
+
+  const openPreviousCalendarMonth = () => {
+    setSelectedCalendarDate(null);
+    setCalendarMonth((currentMonth) => {
+      const currentMonthStart = getMonthStart(new Date());
+      const previousMonth = addMonths(currentMonth, -1);
+
+      return previousMonth < currentMonthStart ? currentMonthStart : previousMonth;
+    });
+  };
+
+  const openNextCalendarMonth = () => {
+    setSelectedCalendarDate(null);
+    setCalendarMonth((currentMonth) => addMonths(currentMonth, 1));
+  };
+
+  const selectCalendarDay = (day: CalendarDayCell) => {
+    const hasEpisodes = Boolean(calendarEpisodeCountByDate.get(day.dateKey));
+    if (!day.isCurrentMonth || day.dateKey < todayDateKey || !hasEpisodes) return;
+
+    setSelectedCalendarDate((currentDate) =>
+      currentDate === day.dateKey ? null : day.dateKey,
+    );
+  };
 
   const cycleLibraryViewMode = () => {
     setLibraryViewMode((currentMode) =>
@@ -2628,7 +2823,7 @@ function App() {
         {activeTab === "calendar" && (
           <section className="calendar-view page-view">
             <div className="library-sticky page-sticky">
-              <div className="page-header">
+              <div className="library-header">
                 <div className="page-title-block">
                   <div className="brand-mark brand-mark-small" aria-label="Series Vault">
                     <span className="series">Series</span>
@@ -2636,72 +2831,171 @@ function App() {
                   </div>
                   <h1>Calendário</h1>
                 </div>
+                <div className="library-actions">
+                  <button
+                    type="button"
+                    className="icon-button"
+                    aria-label="Buscar séries"
+                    onClick={() => setIsSearchOpen(true)}
+                  >
+                    <Search aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    className="icon-button"
+                    aria-label="Voltar para o mês atual"
+                    disabled={isCalendarAtCurrentMonth}
+                    onClick={() => {
+                      setSelectedCalendarDate(null);
+                      setCalendarMonth(getMonthStart(new Date()));
+                    }}
+                  >
+                    <CalendarDays aria-hidden="true" />
+                  </button>
+                </div>
               </div>
             </div>
 
-            <div className="page-scroll-content grid-layout">
-              <div className="panel-inner">
-                <h2>Lançamentos próximos</h2>
-                {calendarEvents.length === 0 ? (
-                  <p className="empty-state">
-                    Nenhum lançamento encontrado para os próximos 7 dias.
-                  </p>
-                ) : (
-                  calendarEvents.map((item, index) => (
-                    <div
-                      key={index}
-                      className="card card-row media-card compact-media-card"
-                    >
-                      <MediaImage
-                        path={item.still_path ?? item.series_poster_path}
-                        alt={`Imagem de ${item.title ?? item.series_title ?? "episódio"}`}
-                        className="calendar-thumb"
-                        fallback="Sem imagem"
-                        size="w300"
-                      />
-                      <div className="card-copy">
-                        <strong>{item.series_title}</strong>
-                        <p>
-                          S{item.season_number}E{item.episode_number} ·{" "}
-                          {formatDate(item.air_date)}
-                        </p>
-                        <p className="item-description">{item.title}</p>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
+            <div className="page-scroll-content calendar-content">
+              <section className="calendar-month-panel">
+                <div className="calendar-month-controls">
+                  <button
+                    type="button"
+                    className="icon-button calendar-nav-button"
+                    aria-label="Mês anterior"
+                    disabled={!canOpenPreviousCalendarMonth}
+                    onClick={openPreviousCalendarMonth}
+                  >
+                    <ChevronLeft aria-hidden="true" />
+                  </button>
+                  <strong>{calendarMonthLabel}</strong>
+                  <button
+                    type="button"
+                    className="icon-button calendar-nav-button"
+                    aria-label="Próximo mês"
+                    onClick={openNextCalendarMonth}
+                  >
+                    <ChevronRight aria-hidden="true" />
+                  </button>
+                </div>
 
-              <div className="panel-inner">
-                <h2>Novos episódios</h2>
-                {newEpisodes.length === 0 ? (
-                  <p className="empty-state">
-                    Nenhum episódio novo registrado desde o início do período.
-                  </p>
-                ) : (
-                  newEpisodes.map((episode) => (
-                    <div
-                      key={episode.episode_id}
-                      className="card card-row media-card compact-media-card"
+                <div className="calendar-weekdays" aria-hidden="true">
+                  {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map(
+                    (weekday) => (
+                      <span key={weekday}>{weekday}</span>
+                    ),
+                  )}
+                </div>
+
+                <div className="calendar-grid" aria-label={calendarMonthLabel}>
+                  {calendarDays.map((day) => {
+                    const episodeCount =
+                      calendarEpisodeCountByDate.get(day.dateKey) ?? 0;
+                    const isToday = day.dateKey === todayDateKey;
+                    const isPast = day.dateKey < todayDateKey;
+                    const isSelected = selectedCalendarDate === day.dateKey;
+                    const isSelectable =
+                      day.isCurrentMonth && !isPast && episodeCount > 0;
+
+                    return (
+                      <button
+                        key={day.dateKey}
+                        type="button"
+                        className={[
+                          "calendar-day",
+                          !day.isCurrentMonth ? "outside-month" : "",
+                          isPast ? "past" : "",
+                          isToday ? "today" : "",
+                          episodeCount > 0 ? "has-episodes" : "",
+                          isSelected ? "selected" : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" ")}
+                        aria-label={`${day.dayNumber} de ${calendarMonthLabel}${
+                          episodeCount > 0
+                            ? `, ${episodeCount} episódio${
+                                episodeCount > 1 ? "s" : ""
+                              }`
+                            : ""
+                        }`}
+                        aria-pressed={isSelected}
+                        disabled={!isSelectable}
+                        onClick={() => selectCalendarDay(day)}
+                      >
+                        <span>{day.dayNumber}</span>
+                        {episodeCount > 0 && (
+                          <span className="calendar-day-marker">
+                            {episodeCount > 3 ? "3+" : episodeCount}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+
+              <section className="calendar-episode-section">
+                <div className="calendar-list-heading">
+                  <h2>{calendarListHeading}</h2>
+                  {selectedCalendarDate && (
+                    <button
+                      type="button"
+                      className="icon-button"
+                      aria-label="Limpar filtro de data"
+                      onClick={() => setSelectedCalendarDate(null)}
                     >
-                      <MediaImage
-                        path={episode.still_path ?? episode.series_poster_path}
-                        alt={`Imagem de ${episode.title ?? "episódio"}`}
-                        className="calendar-thumb"
-                        fallback="Sem imagem"
-                        size="w300"
-                      />
-                      <div className="card-copy">
-                        <strong>
-                          S{episode.season_number}E{episode.episode_number}:{" "}
-                          {episode.title ?? "Sem título"}
-                        </strong>
-                        <p>{formatDate(episode.air_date)}</p>
-                      </div>
-                    </div>
-                  ))
+                      <X aria-hidden="true" />
+                    </button>
+                  )}
+                </div>
+
+                {isCalendarLoading ? (
+                  <div
+                    className="calendar-episode-card calendar-episode-card-skeleton"
+                    aria-hidden="true"
+                  >
+                    <span className="calendar-thumb skeleton" />
+                    <span>
+                      <span className="skeleton skeleton-text skeleton-title" />
+                      <span className="skeleton skeleton-text skeleton-subtitle" />
+                      <span className="skeleton skeleton-text skeleton-date" />
+                    </span>
+                  </div>
+                ) : visibleCalendarEpisodes.length === 0 ? (
+                  <p className="empty-state">{calendarEmptyMessage}</p>
+                ) : (
+                  <div className="calendar-episode-list">
+                    {visibleCalendarEpisodes.map((episode) => (
+                      <article
+                        key={[
+                          episode.episode_id,
+                          episode.series_id,
+                          episode.season_number,
+                          episode.episode_number,
+                        ].join("-")}
+                        className="calendar-episode-card"
+                      >
+                        <MediaImage
+                          path={episode.still_path ?? episode.series_poster_path}
+                          alt={`Imagem de ${episode.title ?? episode.series_title ?? "episódio"}`}
+                          className="calendar-thumb"
+                          fallback="Sem imagem"
+                          size="w300"
+                        />
+                        <div className="card-copy">
+                          <small>{formatLongDate(episode.air_date)}</small>
+                          <strong>{episode.series_title}</strong>
+                          <p>
+                            S{episode.season_number ?? "-"}E
+                            {episode.episode_number ?? "-"}
+                            {episode.title ? ` · ${episode.title}` : ""}
+                          </p>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
                 )}
-              </div>
+              </section>
             </div>
           </section>
         )}

@@ -1799,6 +1799,179 @@
   width: 96px;
 }
 
+.calendar-content {
+  display: grid;
+  gap: 14px;
+}
+
+.calendar-month-panel,
+.calendar-episode-section {
+  display: grid;
+  gap: 12px;
+}
+
+.calendar-month-panel {
+  padding: 4px 0 2px;
+}
+
+.calendar-month-controls {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 42px;
+  align-items: center;
+  gap: 10px;
+  min-height: 46px;
+}
+
+.calendar-month-controls strong {
+  justify-self: center;
+  overflow: hidden;
+  font-size: 1rem;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calendar-nav-button {
+  border-color: var(--border);
+  background: rgba(16, 25, 24, 0.56);
+}
+
+.icon-button:disabled,
+.calendar-day:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.calendar-weekdays,
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.calendar-weekdays {
+  min-height: 24px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-weight: 900;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.calendar-grid {
+  gap: 3px;
+}
+
+.calendar-day {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  aspect-ratio: 1;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.calendar-day:hover:not(:disabled),
+.calendar-day.selected {
+  border-color: var(--border-strong);
+  background: rgba(15, 118, 110, 0.2);
+}
+
+.calendar-day.outside-month {
+  color: rgba(145, 163, 158, 0.52);
+}
+
+.calendar-day.today {
+  color: var(--purple-light);
+}
+
+.calendar-day.selected {
+  color: var(--text);
+  box-shadow: 0 0 0 1px rgba(20, 160, 133, 0.18);
+}
+
+.calendar-day-marker {
+  position: absolute;
+  right: 6px;
+  bottom: 5px;
+  display: grid;
+  place-items: center;
+  min-width: 7px;
+  height: 7px;
+  padding: 0 2px;
+  border-radius: 999px;
+  background: var(--purple-light);
+  color: var(--bg);
+  font-size: 0;
+  line-height: 1;
+  box-shadow: 0 0 12px rgba(20, 160, 133, 0.52);
+}
+
+.calendar-day.selected .calendar-day-marker {
+  background: var(--text);
+}
+
+.calendar-list-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 42px;
+}
+
+.calendar-list-heading h2 {
+  margin: 0;
+  overflow: hidden;
+  font-size: 0.98rem;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calendar-episode-list {
+  display: grid;
+  gap: 10px;
+}
+
+.calendar-episode-card {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(21, 37, 34, 0.78);
+}
+
+.calendar-episode-card:hover {
+  border-color: var(--border-strong);
+}
+
+.calendar-episode-card small {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: capitalize;
+}
+
+.calendar-episode-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.3;
+}
+
+.calendar-episode-card-skeleton {
+  pointer-events: none;
+}
+
 .episode-modal-backdrop {
   position: fixed;
   inset: 0;
