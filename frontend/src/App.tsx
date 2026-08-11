@@ -556,6 +556,8 @@ function App() {
   const [calendarMonth, setCalendarMonth] = useState(() =>
     getMonthStart(new Date()),
   );
+  const [isCalendarMonthPanelExpanded, setIsCalendarMonthPanelExpanded] =
+    useState(true);
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<
     string | null
   >(null);
@@ -2694,8 +2696,8 @@ function App() {
 
         {activeTab === "tracked" && (
           <section className="library-view page-view">
-            <div className="library-sticky page-sticky">
-              <div className="library-header">
+            <div className="page-topbar page-sticky">
+              <div className="page-header">
                 <div className="page-title-block">
                   <div className="brand-mark brand-mark-small" aria-label="Series Vault">
                     <span className="series">Series</span>
@@ -2703,7 +2705,7 @@ function App() {
                   </div>
                   <h1>Biblioteca</h1>
                 </div>
-                <div className="library-actions">
+                <div className="page-actions">
                   <button
                     type="button"
                     className="icon-button"
@@ -2822,8 +2824,8 @@ function App() {
 
         {activeTab === "calendar" && (
           <section className="calendar-view page-view">
-            <div className="library-sticky page-sticky">
-              <div className="library-header">
+            <div className="page-topbar page-sticky">
+              <div className="page-header">
                 <div className="page-title-block">
                   <div className="brand-mark brand-mark-small" aria-label="Series Vault">
                     <span className="series">Series</span>
@@ -2831,24 +2833,19 @@ function App() {
                   </div>
                   <h1>Calendário</h1>
                 </div>
-                <div className="library-actions">
+                <div className="page-actions">
                   <button
                     type="button"
                     className="icon-button"
-                    aria-label="Buscar séries"
-                    onClick={() => setIsSearchOpen(true)}
-                  >
-                    <Search aria-hidden="true" />
-                  </button>
-                  <button
-                    type="button"
-                    className="icon-button"
-                    aria-label="Voltar para o mês atual"
-                    disabled={isCalendarAtCurrentMonth}
-                    onClick={() => {
-                      setSelectedCalendarDate(null);
-                      setCalendarMonth(getMonthStart(new Date()));
-                    }}
+                    aria-label={
+                      isCalendarMonthPanelExpanded
+                        ? "Recolher calendário"
+                        : "Expandir calendário"
+                    }
+                    aria-expanded={isCalendarMonthPanelExpanded}
+                    onClick={() =>
+                      setIsCalendarMonthPanelExpanded((isExpanded) => !isExpanded)
+                    }
                   >
                     <CalendarDays aria-hidden="true" />
                   </button>
@@ -2857,6 +2854,7 @@ function App() {
             </div>
 
             <div className="page-scroll-content calendar-content">
+              {isCalendarMonthPanelExpanded && (
               <section className="calendar-month-panel">
                 <div className="calendar-month-controls">
                   <button
@@ -2933,6 +2931,7 @@ function App() {
                   })}
                 </div>
               </section>
+              )}
 
               <section className="calendar-episode-section">
                 <div className="calendar-list-heading">
@@ -3002,7 +3001,7 @@ function App() {
 
         {activeTab === "stats" && (
           <section className="stats-view page-view">
-            <div className="library-sticky page-sticky">
+            <div className="page-topbar page-sticky">
               <div className="page-header">
                 <div className="page-title-block">
                   <div className="brand-mark brand-mark-small" aria-label="Series Vault">
