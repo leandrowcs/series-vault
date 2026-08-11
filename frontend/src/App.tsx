@@ -11,7 +11,6 @@ import {
   Home,
   Library,
   List,
-  MoreHorizontal,
   Play,
   BookmarkCheck,
   BookmarkPlus,
@@ -56,11 +55,13 @@ type SeasonEpisodeGroup = {
   watchedCount: number;
 };
 
-type ActiveTab = "home" | "tracked" | "calendar" | "stats" | "search";
+type ActiveTab = "home" | "tracked" | "calendar" | "stats";
 
 type LibraryFilter = "watching" | "waiting" | "finished" | "abandoned" | "all";
 
 type LibraryViewMode = "covers" | "list";
+
+type LibraryTabTransitionDirection = "slide-left" | "slide-right";
 
 type SeriesModalTab = "details" | "seasons";
 
@@ -88,6 +89,14 @@ type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
 };
+
+const libraryFilterOrder: LibraryFilter[] = [
+  "watching",
+  "waiting",
+  "finished",
+  "abandoned",
+  "all",
+];
 
 const configuredApiBaseUrl = String(
   import.meta.env.VITE_API_BASE_URL ?? "",
@@ -166,6 +175,14 @@ const formatWatchDuration = (minutes: number) => {
 
   if (parts.length === 1) return parts[0];
   return `${parts.slice(0, -1).join(", ")} e ${parts[parts.length - 1]}`;
+};
+
+const getGreeting = () => {
+  const hour = new Date().getHours();
+
+  if (hour < 12) return "Bom dia";
+  if (hour < 18) return "Boa tarde";
+  return "Boa noite";
 };
 
 const getApiErrorMessage = (err: unknown, fallback: string) => {
@@ -374,6 +391,7 @@ function App() {
     useState<BeforeInstallPromptEvent | null>(null);
   const [isAppInstalled, setIsAppInstalled] = useState(false);
   const [activeTab, setActiveTab] = useState<ActiveTab>("home");
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [tracked, setTracked] = useState<TrackedSeries[]>([]);
@@ -412,7 +430,12 @@ function App() {
   const [expandedSeasons, setExpandedSeasons] = useState<Set<number>>(
     new Set(),
   );
+  const [collapsedLibraryGroups, setCollapsedLibraryGroups] = useState<
+    Set<string>
+  >(new Set());
   const [libraryFilter, setLibraryFilter] = useState<LibraryFilter>("watching");
+  const [libraryTabTransitionDirection, setLibraryTabTransitionDirection] =
+    useState<LibraryTabTransitionDirection>("slide-left");
   const [libraryViewMode, setLibraryViewMode] =
     useState<LibraryViewMode>("covers");
 
@@ -586,18 +609,16 @@ function App() {
   const seasonGroups = useMemo<SeasonEpisodeGroup[]>(() => {
     const groups = new Map<number, EpisodeDetail[]>();
 
-    episodes.forEach((episode) => {
+    episodes
+      .filter((episode) => episode.season_number > 0)
+      .forEach((episode) => {
       const seasonEpisodes = groups.get(episode.season_number) ?? [];
       seasonEpisodes.push(episode);
       groups.set(episode.season_number, seasonEpisodes);
     });
 
     return Array.from(groups.entries())
-      .sort(([seasonA], [seasonB]) => {
-        if (seasonA === 0) return 1;
-        if (seasonB === 0) return -1;
-        return seasonA - seasonB;
-      })
+      .sort(([seasonA], [seasonB]) => seasonA - seasonB)
       .map(([seasonNumber, seasonEpisodes]) => {
         const sortedEpisodes = [...seasonEpisodes].sort(
           (episodeA, episodeB) =>
@@ -1198,27 +1219,29 @@ function App() {
     return `S${latest.season_number} - E${latest.episode_number}`;
   };
 
-  const nextWatchlistEpisode = useMemo<UpcomingEpisodeItem | undefined>(() => {
-    for (const series of continueWatching) {
-      const seriesEpisodes = episodeCache[String(series.tmdb_id)];
-      if (!seriesEpisodes?.length) continue;
+  const nextWatchlistEpisodes = useMemo<UpcomingEpisodeItem[]>(() => {
+    return continueWatching
+      .map((series) => {
+        const seriesEpisodes = episodeCache[String(series.tmdb_id)];
+        if (!seriesEpisodes?.length) return undefined;
 
-      const sortedEpisodes = [...seriesEpisodes].sort(
-        (episodeA, episodeB) =>
-          episodeA.season_number - episodeB.season_number ||
-          episodeA.episode_number - episodeB.episode_number,
-      );
-      const nextEpisode =
-        sortedEpisodes.find(
-          (episode) =>
-            episode.season_number > 0 &&
-            !watchedEpisodeKeys.has(getEpisodeKey(episode)),
-        ) ??
-        sortedEpisodes.find(
-          (episode) => !watchedEpisodeKeys.has(getEpisodeKey(episode)),
+        const sortedEpisodes = [...seriesEpisodes].sort(
+          (episodeA, episodeB) =>
+            episodeA.season_number - episodeB.season_number ||
+            episodeA.episode_number - episodeB.episode_number,
         );
+        const nextEpisode =
+          sortedEpisodes.find(
+            (episode) =>
+              episode.season_number > 0 &&
+              !watchedEpisodeKeys.has(getEpisodeKey(episode)),
+          ) ??
+          sortedEpisodes.find(
+            (episode) => !watchedEpisodeKeys.has(getEpisodeKey(episode)),
+          );
 
-      if (nextEpisode) {
+        if (!nextEpisode) return undefined;
+
         return {
           source: "watchlist",
           series,
@@ -1233,30 +1256,77 @@ function App() {
           series_poster_path: series.poster_path,
           watched: false,
         };
-      }
-    }
-
-    return undefined;
+      })
+      .filter((item): item is UpcomingEpisodeItem => Boolean(item));
   }, [continueWatching, episodeCache, watchedEpisodeKeys]);
 
-  const calendarUpcomingEpisode = useMemo<UpcomingEpisodeItem | undefined>(() => {
-    const calendarEpisode = calendarEvents[0] ?? newEpisodes[0];
-    if (!calendarEpisode) return undefined;
+  const calendarUpcomingEpisodes = useMemo<UpcomingEpisodeItem[]>(() => {
+    const byEpisode = new Map<string, UpcomingEpisodeItem>();
 
-    return {
-      ...calendarEpisode,
-      source: "calendar",
-    };
+    [...calendarEvents, ...newEpisodes].forEach((episode) => {
+      const key = [
+        episode.episode_id,
+        episode.series_id,
+        episode.season_number,
+        episode.episode_number,
+      ].join("-");
+
+      if (!byEpisode.has(key)) {
+        byEpisode.set(key, {
+          ...episode,
+          source: "calendar",
+        });
+      }
+    });
+
+    return Array.from(byEpisode.values());
   }, [calendarEvents, newEpisodes]);
 
-  const upcomingEpisode = calendarUpcomingEpisode ?? nextWatchlistEpisode;
+  const upcomingEpisodes = useMemo(() => {
+    const byEpisode = new Map<string, UpcomingEpisodeItem>();
+
+    [...calendarUpcomingEpisodes, ...nextWatchlistEpisodes].forEach(
+      (episode) => {
+        const key = [
+          episode.episode_id,
+          episode.series_id,
+          episode.season_number,
+          episode.episode_number,
+        ].join("-");
+
+        if (!byEpisode.has(key)) {
+          byEpisode.set(key, episode);
+        }
+      },
+    );
+
+    return Array.from(byEpisode.values())
+      .sort((episodeA, episodeB) => {
+        const dateA = episodeA.air_date
+          ? new Date(episodeA.air_date).getTime()
+          : Number.MAX_SAFE_INTEGER;
+        const dateB = episodeB.air_date
+          ? new Date(episodeB.air_date).getTime()
+          : Number.MAX_SAFE_INTEGER;
+
+        if (dateA !== dateB) return dateA - dateB;
+
+        return String(episodeA.series_title ?? "").localeCompare(
+          String(episodeB.series_title ?? ""),
+          "pt-BR",
+        );
+      })
+      .slice(0, 6);
+  }, [calendarUpcomingEpisodes, nextWatchlistEpisodes]);
+
   const isDashboardLoading =
     (isTrackedLoading && tracked.length === 0) ||
     (isStatsLoading && !stats.overview);
   const isContinueWatchingLoading =
     isTrackedLoading && continueWatching.length === 0;
   const isUpcomingEpisodeLoading =
-    (isCalendarLoading || isEpisodePrefetchLoading) && !upcomingEpisode;
+    (isCalendarLoading || isEpisodePrefetchLoading) &&
+    upcomingEpisodes.length === 0;
 
   const dashboardMetrics: DashboardMetric[] = [
     {
@@ -1303,7 +1373,7 @@ function App() {
     { id: "watching", label: "Assistindo", icon: Star },
     { id: "waiting", label: "Aguardando", icon: BookmarkPlus },
     { id: "finished", label: "Finalizadas", icon: BookmarkCheck },
-    { id: "abandoned", label: "Abandonadas", icon: BookmarkX },
+    { id: "abandoned", label: "Largadas", icon: BookmarkX },
     { id: "all", label: "Todas", icon: Library },
   ];
 
@@ -1365,6 +1435,38 @@ function App() {
     );
   };
 
+  const selectLibraryFilter = (filter: LibraryFilter) => {
+    if (filter === libraryFilter) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
+    const currentIndex = libraryFilterOrder.indexOf(libraryFilter);
+    const nextIndex = libraryFilterOrder.indexOf(filter);
+
+    setLibraryTabTransitionDirection(
+      nextIndex > currentIndex ? "slide-left" : "slide-right",
+    );
+    setLibraryFilter(filter);
+    window.requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  };
+
+  const toggleLibraryGroup = (label: string) => {
+    setCollapsedLibraryGroups((currentGroups) => {
+      const nextGroups = new Set(currentGroups);
+
+      if (nextGroups.has(label)) {
+        nextGroups.delete(label);
+      } else {
+        nextGroups.add(label);
+      }
+
+      return nextGroups;
+    });
+  };
+
   const getLibraryEmptyMessage = () => {
     if (libraryFilter === "watching") {
       return "Nenhuma série com episódios em andamento.";
@@ -1379,7 +1481,7 @@ function App() {
     }
 
     if (libraryFilter === "abandoned") {
-      return "Nenhuma série abandonada por enquanto.";
+      return "Nenhuma série largada por enquanto.";
     }
 
     return "Nenhuma série encontrada na biblioteca.";
@@ -1426,24 +1528,12 @@ function App() {
           : String(selectedSeries.number_of_episodes ?? 0),
       },
       {
-        label: "Especiais",
-        value: selectedEpisodeTotals.specials
-          ? `${selectedEpisodeTotals.specialsWatched}/${selectedEpisodeTotals.specials}`
-          : "Nenhum",
-      },
-      {
         label: "Primeiro episódio",
         value: formatDate(selectedSeries.first_air_date),
       },
       {
         label: "Último episódio",
         value: formatDate(selectedSeries.last_air_date),
-      },
-      {
-        label: "Duração média",
-        value: selectedSeries.episode_run_time
-          ? `${selectedSeries.episode_run_time} min`
-          : "-",
       },
     ];
   }, [selectedEpisodeTotals, selectedSeries, seasonGroups.length]);
@@ -1535,18 +1625,18 @@ function App() {
     setInstallPrompt(null);
   };
 
-  const navItems: { id: ActiveTab; label: string; icon: LucideIcon }[] = [
+  const navItems: { id: ActiveTab | "search"; label: string; icon: LucideIcon }[] = [
     { id: "home", label: "Início", icon: Home },
     { id: "tracked", label: "Biblioteca", icon: Library },
     { id: "calendar", label: "Calendário", icon: CalendarDays },
     { id: "stats", label: "Estatísticas", icon: BarChart3 },
-    { id: "search", label: "Mais", icon: MoreHorizontal },
+    { id: "search", label: "Buscar", icon: Search },
   ];
 
   return (
     <div className="app-shell">
       <main className="app-main">
-        {activeTab !== "tracked" && (
+        {activeTab === "home" && (
           <header className="home-header">
             <div className="brand-mark" aria-label="Series Vault">
               <span className="series">Series</span>
@@ -1592,7 +1682,7 @@ function App() {
             <div className="greeting-block">
               <span className="greeting-copy">
                 <h1>
-                  Boa noite, {auth.user?.name?.split(" ")[0] ?? "Leandro"}!
+                  {getGreeting()}, {auth.user?.name?.split(" ")[0] ?? "Leandro"}!
                 </h1>
                 <p>Pronto para mais uma maratona?</p>
               </span>
@@ -1773,44 +1863,49 @@ function App() {
                     <span className="skeleton skeleton-text skeleton-date" />
                   </span>
                 </div>
-              ) : upcomingEpisode ? (
-                <button
-                  type="button"
-                  className="upcoming-card"
-                  onClick={() => {
-                    if (
-                      upcomingEpisode.source === "watchlist" &&
-                      upcomingEpisode.series
-                    ) {
-                      setSelectedSeries(upcomingEpisode.series);
-                      setActiveTab("tracked");
-                      return;
-                    }
+              ) : upcomingEpisodes.length > 0 ? (
+                <div className="upcoming-list">
+                  {upcomingEpisodes.map((episode) => (
+                    <button
+                      key={[
+                        episode.episode_id,
+                        episode.series_id,
+                        episode.season_number,
+                        episode.episode_number,
+                      ].join("-")}
+                      type="button"
+                      className="upcoming-card"
+                      onClick={() => {
+                        if (episode.source === "watchlist" && episode.series) {
+                          setSelectedSeries(episode.series);
+                          setActiveTab("tracked");
+                          return;
+                        }
 
-                    setActiveTab("calendar");
-                  }}
-                >
-                  <MediaImage
-                    path={
-                      upcomingEpisode.still_path ??
-                      upcomingEpisode.series_poster_path
-                    }
-                    alt={`Imagem de ${upcomingEpisode.title ?? upcomingEpisode.series_title ?? "episódio"}`}
-                    className="upcoming-poster"
-                    fallback="Sem imagem"
-                    size="w300"
-                  />
-                  <span>
-                    <strong>
-                      {upcomingEpisode.series_title ?? "Série acompanhada"}
-                    </strong>
-                    <small>
-                      S{upcomingEpisode.season_number ?? "-"} - E
-                      {upcomingEpisode.episode_number ?? "-"}
-                    </small>
-                    <small>{formatDate(upcomingEpisode.air_date)}</small>
-                  </span>
-                </button>
+                        setActiveTab("calendar");
+                      }}
+                    >
+                      <MediaImage
+                        path={episode.still_path ?? episode.series_poster_path}
+                        alt={`Imagem de ${episode.title ?? episode.series_title ?? "episódio"}`}
+                        className="upcoming-poster"
+                        fallback="Sem imagem"
+                        size="w300"
+                      />
+                      <span>
+                        <strong>
+                          {episode.series_title ?? "Série acompanhada"}
+                        </strong>
+                        <small>
+                          S{episode.season_number ?? "-"} - E
+                          {episode.episode_number ?? "-"}
+                          {episode.title ? ` · ${episode.title}` : ""}
+                        </small>
+                        <small>{formatDate(episode.air_date)}</small>
+                      </span>
+                    </button>
+                  ))}
+                </div>
               ) : (
                 <p className="empty-state">
                   Nenhum episódio encontrado para sua fila no momento.
@@ -1820,137 +1915,147 @@ function App() {
           </section>
         )}
 
-        {activeTab === "search" && (
-          <section className="panel">
-            <h2>Buscar série</h2>
-            <div className="search-row">
-              <input
-                type="text"
-                placeholder="Digitar nome da série"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && searchSeries()}
-              />
-              <button onClick={searchSeries}>Buscar</button>
-            </div>
-            <div className="search-results">
-              {results.length === 0 ? (
-                <p className="empty-state">
-                  Busque por uma série para começar.
-                </p>
-              ) : (
-                results.map((item) => (
-                  <div key={item.tmdb_id} className="card card-row media-card">
-                    <MediaImage
-                      path={item.poster_path}
-                      alt={`Capa de ${item.name}`}
-                      className="poster-thumb"
-                      fallback="Sem capa"
-                      size="w185"
-                    />
-                    <div className="card-copy">
-                      <strong>{item.name}</strong>
-                      <p>{formatDate(item.first_air_date)}</p>
-                      <p className="item-description">{item.overview}</p>
-                    </div>
-                    <button onClick={() => addSeries(item.tmdb_id)}>
-                      Adicionar
-                    </button>
+        {activeTab === "tracked" && (
+          <section className="library-view">
+            <div className="library-sticky">
+              <div className="library-header">
+                <div className="page-title-block">
+                  <div className="brand-mark brand-mark-small" aria-label="Series Vault">
+                    <span className="series">Series</span>
+                    <strong className="vault">Vault</strong>
                   </div>
-                ))
+                  <h1>Biblioteca</h1>
+                </div>
+                <div className="library-actions">
+                  <button
+                    type="button"
+                    className="icon-button"
+                    aria-label="Buscar séries"
+                    onClick={() => setIsSearchOpen(true)}
+                  >
+                    <Search aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    className="icon-button"
+                    aria-label={
+                      libraryViewMode === "covers"
+                        ? "Visualizar em lista"
+                        : "Visualizar em capas"
+                    }
+                    onClick={cycleLibraryViewMode}
+                  >
+                    {libraryViewMode === "covers" ? (
+                      <List aria-hidden="true" />
+                    ) : (
+                      <Grid2X2 aria-hidden="true" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <div
+                className="library-tabs"
+                role="tablist"
+                aria-label="Filtros da biblioteca"
+              >
+                {libraryTabs.map((tab) => {
+                  const TabIcon = tab.icon;
+
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={libraryFilter === tab.id}
+                      className={
+                        libraryFilter === tab.id
+                          ? `library-tab library-tab-${tab.id} active`
+                          : `library-tab library-tab-${tab.id}`
+                      }
+                      onClick={() => selectLibraryFilter(tab.id)}
+                    >
+                      {TabIcon && (
+                        <TabIcon className="library-tab-icon" aria-hidden="true" />
+                      )}
+                      <span>{tab.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div
+              key={libraryFilter}
+              className={`library-tab-content ${libraryTabTransitionDirection}`}
+            >
+              {!hasLibraryGroups ? (
+                <p className="empty-state">{getLibraryEmptyMessage()}</p>
+              ) : (
+                <div className="library-groups">
+                  {groupedLibrarySeries.map((group) => {
+                    const isAlphabetGroup = libraryFilter === "all" && group.label;
+                    const isCollapsed =
+                      isAlphabetGroup &&
+                      collapsedLibraryGroups.has(group.label);
+
+                    return (
+                      <section
+                        key={group.label || libraryFilter}
+                        className="library-group"
+                      >
+                        {isAlphabetGroup && (
+                          <button
+                            type="button"
+                            className="library-group-toggle"
+                            aria-expanded={!isCollapsed}
+                            onClick={() => toggleLibraryGroup(group.label)}
+                          >
+                            <ChevronDown
+                              className={
+                                isCollapsed
+                                  ? "library-group-icon"
+                                  : "library-group-icon expanded"
+                              }
+                              aria-hidden="true"
+                            />
+                            <span className="library-group-heading">
+                              {group.label}
+                            </span>
+                            <span className="library-group-count">
+                              {group.series.length}
+                            </span>
+                          </button>
+                        )}
+
+                        {!isCollapsed && (
+                          <div
+                            className={`library-grid library-grid-${libraryViewMode}`}
+                          >
+                            {group.series.map(renderLibraryCard)}
+                          </div>
+                        )}
+                      </section>
+                    );
+                  })}
+                </div>
               )}
             </div>
           </section>
         )}
 
-        {activeTab === "tracked" && (
-          <section className="library-view">
-            <div className="library-header">
-              <h1>Biblioteca</h1>
-              <div className="library-actions">
-                <button
-                  type="button"
-                  className="icon-button"
-                  aria-label="Buscar séries"
-                  onClick={() => setActiveTab("search")}
-                >
-                  <Search aria-hidden="true" />
-                </button>
-                <button
-                  type="button"
-                  className="icon-button"
-                  aria-label={
-                    libraryViewMode === "covers"
-                      ? "Visualizar em lista"
-                      : "Visualizar em capas"
-                  }
-                  onClick={cycleLibraryViewMode}
-                >
-                  {libraryViewMode === "covers" ? (
-                    <List aria-hidden="true" />
-                  ) : (
-                    <Grid2X2 aria-hidden="true" />
-                  )}
-                </button>
-              </div>
-            </div>
-
-            <div
-              className="library-tabs"
-              role="tablist"
-              aria-label="Filtros da biblioteca"
-            >
-              {libraryTabs.map((tab) => {
-                const TabIcon = tab.icon;
-
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    role="tab"
-                    aria-selected={libraryFilter === tab.id}
-                    className={
-                      libraryFilter === tab.id
-                        ? "library-tab active"
-                        : "library-tab"
-                    }
-                    onClick={() => setLibraryFilter(tab.id)}
-                  >
-                    <span>{tab.label}</span>
-                    {TabIcon && (
-                      <TabIcon className="library-tab-icon" aria-hidden="true" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-
-            {!hasLibraryGroups ? (
-              <p className="empty-state">{getLibraryEmptyMessage()}</p>
-            ) : (
-              <div className="library-groups">
-                {groupedLibrarySeries.map((group) => (
-                  <section
-                    key={group.label || libraryFilter}
-                    className="library-group"
-                  >
-                    {group.label && (
-                      <h2 className="library-group-heading">{group.label}</h2>
-                    )}
-                    <div
-                      className={`library-grid library-grid-${libraryViewMode}`}
-                    >
-                      {group.series.map(renderLibraryCard)}
-                    </div>
-                  </section>
-                ))}
-              </div>
-            )}
-          </section>
-        )}
-
         {activeTab === "calendar" && (
           <section className="panel grid-layout">
+            <div className="page-header">
+              <div className="page-title-block">
+                <div className="brand-mark brand-mark-small" aria-label="Series Vault">
+                  <span className="series">Series</span>
+                  <strong className="vault">Vault</strong>
+                </div>
+                <h1>Calendário</h1>
+              </div>
+            </div>
+
             <div className="panel-inner">
               <h2>Lançamentos próximos</h2>
               {calendarEvents.length === 0 ? (
@@ -2018,6 +2123,16 @@ function App() {
 
         {activeTab === "stats" && (
           <section className="panel stats-grid">
+            <div className="page-header">
+              <div className="page-title-block">
+                <div className="brand-mark brand-mark-small" aria-label="Series Vault">
+                  <span className="series">Series</span>
+                  <strong className="vault">Vault</strong>
+                </div>
+                <h1>Estatísticas</h1>
+              </div>
+            </div>
+
             <div className="stat-card">
               <h3>Visão geral</h3>
               <p>
@@ -2256,10 +2371,7 @@ function App() {
                     const isExpanded = expandedSeasons.has(group.seasonNumber);
                     const isSeasonComplete =
                       group.watchedCount === group.episodes.length;
-                    const seasonTitle =
-                      group.seasonNumber === 0
-                        ? "Especiais"
-                        : `Temporada ${group.seasonNumber}`;
+                    const seasonTitle = `Temporada ${group.seasonNumber}`;
 
                     return (
                       <section key={group.seasonNumber} className="season-group">
@@ -2345,6 +2457,75 @@ function App() {
         </div>
       )}
 
+      <section
+        className={isSearchOpen ? "search-drawer open" : "search-drawer"}
+        aria-hidden={isSearchOpen ? "false" : "true"}
+      >
+        <div className="search-drawer-panel">
+          <div className="search-row search-drawer-row">
+            <div className="search-input-wrap">
+              <Search aria-hidden="true" />
+              <input
+                type="text"
+                placeholder="Buscar série"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    searchSeries();
+                  }
+                  if (event.key === "Escape") {
+                    setIsSearchOpen(false);
+                  }
+                }}
+              />
+              {query && (
+                <button
+                  type="button"
+                  className="search-clear-button"
+                  aria-label="Limpar busca"
+                  onClick={() => {
+                    setQuery("");
+                    setResults([]);
+                  }}
+                >
+                  <X aria-hidden="true" />
+                </button>
+              )}
+            </div>
+            <button type="button" onClick={searchSeries}>
+              Buscar
+            </button>
+          </div>
+
+          <div className="search-results">
+            {results.length === 0 ? (
+              <p className="empty-state">Busque por uma série para começar.</p>
+            ) : (
+              results.map((item) => (
+                <div key={item.tmdb_id} className="card card-row media-card">
+                  <MediaImage
+                    path={item.poster_path}
+                    alt={`Capa de ${item.name}`}
+                    className="poster-thumb"
+                    fallback="Sem capa"
+                    size="w185"
+                  />
+                  <div className="card-copy">
+                    <strong>{item.name}</strong>
+                    <p>{formatDate(item.first_air_date)}</p>
+                    <p className="item-description">{item.overview}</p>
+                  </div>
+                  <button type="button" onClick={() => addSeries(item.tmdb_id)}>
+                    Adicionar
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </section>
+
       <nav className="bottom-nav" aria-label="Navegacao principal">
         {navItems.map((item) => {
           const NavIcon = item.icon;
@@ -2354,12 +2535,20 @@ function App() {
               key={item.id}
               type="button"
               className={
+                (item.id === "search" && isSearchOpen) ||
                 activeTab === item.id
                   ? "bottom-nav-item active"
                   : "bottom-nav-item"
               }
               onClick={() => {
+                if (item.id === "search") {
+                  setIsSearchOpen((current) => !current);
+                  setError("");
+                  return;
+                }
+
                 setActiveTab(item.id);
+                setIsSearchOpen(false);
                 setError("");
               }}
             >
