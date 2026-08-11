@@ -490,11 +490,11 @@
 }
 
 .library-tab-content.slide-left {
-  animation: library-slide-left 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  animation: library-slide-left 320ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .library-tab-content.slide-right {
-  animation: library-slide-right 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  animation: library-slide-right 320ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .library-groups {
@@ -1263,6 +1263,28 @@
   font-weight: 700;
 }
 
+.series-rating-line {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--amber);
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.series-rating-star {
+  width: 15px;
+  height: 15px;
+  color: rgba(232, 241, 238, 0.24);
+  fill: transparent;
+  stroke-width: 2.2;
+}
+
+.series-rating-star.filled {
+  color: var(--amber);
+  fill: currentColor;
+}
+
 .series-modal-close {
   align-self: start;
   border-color: var(--border);
@@ -1315,6 +1337,19 @@
   padding: 16px 14px 14px;
 }
 
+.series-modal-tab-content {
+  min-width: 0;
+  will-change: opacity, transform;
+}
+
+.series-modal-tab-content.slide-left {
+  animation: library-slide-left 320ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.series-modal-tab-content.slide-right {
+  animation: library-slide-right 320ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 .series-overview-text {
   margin: 0;
   color: var(--text);
@@ -1359,13 +1394,61 @@
   gap: 8px;
 }
 
-.series-cast-section {
+.streaming-section {
   display: grid;
   gap: 10px;
 }
 
+.streaming-section h3,
 .series-cast-section h3 {
+  margin: 0;
   font-size: 0.95rem;
+}
+
+.streaming-provider-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.streaming-provider-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  min-height: 38px;
+  padding: 6px 10px 6px 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(16, 25, 24, 0.76);
+  color: var(--text);
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.streaming-provider-button img,
+.streaming-provider-button > span {
+  width: 26px;
+  aspect-ratio: 1;
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.streaming-provider-button > span {
+  display: grid;
+  place-items: center;
+  color: var(--purple-light);
+}
+
+.streaming-provider-button strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.series-cast-section {
+  display: grid;
+  gap: 10px;
 }
 
 .series-cast-list {
@@ -1412,6 +1495,12 @@
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: stretch;
   background: rgba(11, 17, 16, 0.78);
+  background-position: center;
+  background-size: cover;
+}
+
+.season-header-with-art {
+  min-height: 64px;
 }
 
 .season-group {
@@ -1455,7 +1544,7 @@
 
 .season-watch-button {
   align-self: center;
-  margin: 8px 8px 8px 0;
+  margin: 5px;
   white-space: nowrap;
 }
 
@@ -1476,6 +1565,7 @@
 
 .episode-card {
   grid-template-columns: 120px minmax(0, 1fr);
+  cursor: pointer;
 }
 
 .episode-card button {
@@ -1498,6 +1588,87 @@
 
 .calendar-thumb {
   width: 96px;
+}
+
+.episode-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  align-items: center;
+  padding: 18px;
+  background: rgba(3, 7, 6, 0.76);
+  backdrop-filter: blur(18px);
+}
+
+.episode-modal {
+  display: grid;
+  width: min(100%, 520px);
+  max-height: min(86dvh, 760px);
+  margin: 0 auto;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  background: rgba(11, 17, 16, 0.98);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.54);
+}
+
+.episode-modal-image {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: var(--surface);
+}
+
+.episode-modal-copy {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+}
+
+.episode-modal-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.episode-modal-close {
+  width: 36px;
+  border-color: var(--border);
+  background: rgba(16, 25, 24, 0.76);
+}
+
+.episode-modal h2,
+.episode-modal p {
+  margin: 0;
+}
+
+.episode-modal h2 {
+  font-size: 1.12rem;
+  line-height: 1.18;
+}
+
+.episode-modal-copy > p {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.episode-modal-overview {
+  color: var(--text) !important;
+  font-size: 0.88rem !important;
+  font-weight: 500 !important;
+  line-height: 1.48;
+}
+
+.episode-modal-watch-button {
+  min-height: 42px;
+  border: 0;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--purple), var(--purple-light));
+  color: var(--text);
+  font-weight: 900;
 }
 
 .image-list,
@@ -1606,7 +1777,7 @@
 @keyframes library-slide-left {
   from {
     opacity: 0;
-    transform: translateX(22px);
+    transform: translateX(12px);
   }
 
   to {
@@ -1618,7 +1789,7 @@
 @keyframes library-slide-right {
   from {
     opacity: 0;
-    transform: translateX(-22px);
+    transform: translateX(-12px);
   }
 
   to {
@@ -1629,7 +1800,9 @@
 
 @media (prefers-reduced-motion: reduce) {
   .library-tab-content.slide-left,
-  .library-tab-content.slide-right {
+  .library-tab-content.slide-right,
+  .series-modal-tab-content.slide-left,
+  .series-modal-tab-content.slide-right {
     animation: none;
   }
 }

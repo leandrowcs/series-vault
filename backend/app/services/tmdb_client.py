@@ -32,7 +32,17 @@ def tmdb_get_tv_details(tmdb_id: int) -> dict:
     with _get_client() as client:
         response = client.get(
             f"/tv/{tmdb_id}",
-            params={"api_key": settings.tmdb_api_key, "append_to_response": "credits"},
+            params={"api_key": settings.tmdb_api_key, "append_to_response": "credits,watch/providers"},
+        )
+        response.raise_for_status()
+        return response.json()
+
+
+def tmdb_get_watch_providers(tmdb_id: int) -> dict:
+    with _get_client() as client:
+        response = client.get(
+            f"/tv/{tmdb_id}/watch/providers",
+            params={"api_key": settings.tmdb_api_key},
         )
         response.raise_for_status()
         return response.json()

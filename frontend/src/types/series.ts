@@ -28,10 +28,17 @@ export type TrackedSeries = {
     character?: string
     profile_path?: string
   }[]
+  watch_providers?: StreamingProvider[]
   user_status?: 'abandoned'
   library_status?: 'abandoned'
   personal_status?: 'abandoned'
   last_synced_at?: string
+}
+
+export type StreamingProvider = {
+  name: string
+  logo_path?: string
+  type?: string
 }
 
 export type EpisodeDetail = {
@@ -44,6 +51,10 @@ export type EpisodeDetail = {
   air_date?: string
   runtime?: number
   still_path?: string
+  vote_average?: number
+  vote_count?: number
+  season_name?: string
+  season_poster_path?: string
   watched: boolean
   progress_percent: number
 }

@@ -47,7 +47,7 @@ module.exports = async function handler(req, res) {
         return
       }
 
-      const data = await tmdbFetch(`/tv/${tmdbId}`, { append_to_response: 'credits' })
+      const data = await tmdbFetch(`/tv/${tmdbId}`, { append_to_response: 'credits,watch/providers' })
       sendJson(res, 200, toTrackedSeries(data))
       return
     }

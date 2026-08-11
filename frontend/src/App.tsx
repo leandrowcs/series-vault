@@ -42,6 +42,7 @@ import {
   OverviewStats,
   SearchResult,
   SeriesVaultBackup,
+  StreamingProvider,
   TopSeriesStat,
   TrackedSeries,
   WatchedEpisodeRecord,
@@ -53,6 +54,8 @@ type SeasonEpisodeGroup = {
   seasonNumber: number;
   episodes: EpisodeDetail[];
   watchedCount: number;
+  name?: string;
+  posterPath?: string;
 };
 
 type ActiveTab = "home" | "tracked" | "calendar" | "stats";
@@ -61,7 +64,7 @@ type LibraryFilter = "watching" | "waiting" | "finished" | "abandoned" | "all";
 
 type LibraryViewMode = "covers" | "list";
 
-type LibraryTabTransitionDirection = "slide-left" | "slide-right";
+type TabTransitionDirection = "slide-left" | "slide-right";
 
 type SeriesModalTab = "details" | "seasons";
 
@@ -97,6 +100,8 @@ const libraryFilterOrder: LibraryFilter[] = [
   "abandoned",
   "all",
 ];
+
+const seriesModalTabOrder: SeriesModalTab[] = ["details", "seasons"];
 
 const configuredApiBaseUrl = String(
   import.meta.env.VITE_API_BASE_URL ?? "",
@@ -184,6 +189,9 @@ const getGreeting = () => {
   if (hour < 18) return "Boa tarde";
   return "Boa noite";
 };
+
+const getTmdbStarCount = (rating?: number) =>
+  Math.max(0, Math.min(5, Math.round(Number(rating ?? 0) / 2)));
 
 const getApiErrorMessage = (err: unknown, fallback: string) => {
   if (axios.isAxiosError(err)) {
@@ -377,6 +385,7 @@ const normalizeTrackedSeries = (
   vote_count: series.vote_count,
   genres: series.genres,
   actors: series.actors,
+  watch_providers: series.watch_providers,
   user_status: series.user_status,
   library_status: series.library_status,
   personal_status: series.personal_status,
@@ -398,8 +407,13 @@ function App() {
   const [selectedSeries, setSelectedSeries] = useState<TrackedSeries | null>(
     null,
   );
+  const [selectedEpisode, setSelectedEpisode] = useState<EpisodeDetail | null>(
+    null,
+  );
   const [seriesModalTab, setSeriesModalTab] =
     useState<SeriesModalTab>("details");
+  const [seriesModalTabTransitionDirection, setSeriesModalTabTransitionDirection] =
+    useState<TabTransitionDirection>("slide-left");
   const [episodes, setEpisodes] = useState<EpisodeDetail[]>([]);
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
   const [newEpisodes, setNewEpisodes] = useState<CalendarNewEpisode[]>([]);
@@ -426,6 +440,9 @@ function App() {
   const [episodeCache, setEpisodeCache] = useState<
     Record<string, EpisodeDetail[]>
   >({});
+  const [watchProvidersBySeries, setWatchProvidersBySeries] = useState<
+    Record<number, StreamingProvider[]>
+  >({});
   const [hasLoadedCloudData, setHasLoadedCloudData] = useState(false);
   const [expandedSeasons, setExpandedSeasons] = useState<Set<number>>(
     new Set(),
@@ -435,7 +452,7 @@ function App() {
   >(new Set());
   const [libraryFilter, setLibraryFilter] = useState<LibraryFilter>("watching");
   const [libraryTabTransitionDirection, setLibraryTabTransitionDirection] =
-    useState<LibraryTabTransitionDirection>("slide-left");
+    useState<TabTransitionDirection>("slide-left");
   const [libraryViewMode, setLibraryViewMode] =
     useState<LibraryViewMode>("covers");
 
@@ -575,10 +592,59 @@ function App() {
     if (selectedSeries) {
       setEpisodes([]);
       setExpandedSeasons(new Set());
+      setSelectedEpisode(null);
       setSeriesModalTab("details");
       fetchSeriesEpisodes(selectedSeries.id);
     }
   }, [selectedSeries?.id]);
+
+  useEffect(() => {
+    if (!selectedSeries) return;
+
+    if (selectedSeries.watch_providers?.length) {
+      setWatchProvidersBySeries((current) => ({
+        ...current,
+        [selectedSeries.id]: selectedSeries.watch_providers ?? [],
+      }));
+      return;
+    }
+
+    if (!hasApi || watchProvidersBySeries[selectedSeries.id]) return;
+
+    let cancelled = false;
+
+    const fetchWatchProviders = async () => {
+      try {
+        const response = await api.get<StreamingProvider[]>(
+          `/series/${selectedSeries.id}/watch-providers`,
+        );
+        const providers = getArrayResponse<StreamingProvider>(
+          response.data,
+          "serviços de streaming",
+        );
+
+        if (!cancelled) {
+          setWatchProvidersBySeries((current) => ({
+            ...current,
+            [selectedSeries.id]: providers,
+          }));
+        }
+      } catch {
+        if (!cancelled) {
+          setWatchProvidersBySeries((current) => ({
+            ...current,
+            [selectedSeries.id]: [],
+          }));
+        }
+      }
+    };
+
+    fetchWatchProviders();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedSeries, watchProvidersBySeries]);
 
   useEffect(() => {
     setEpisodes((current) => applyWatchedRecords(current, cloudWatchedRecords));
@@ -630,6 +696,10 @@ function App() {
           episodes: sortedEpisodes,
           watchedCount: sortedEpisodes.filter((episode) => episode.watched)
             .length,
+          name: sortedEpisodes.find((episode) => episode.season_name)
+            ?.season_name,
+          posterPath: sortedEpisodes.find((episode) => episode.season_poster_path)
+            ?.season_poster_path,
         };
       });
   }, [episodes]);
@@ -810,6 +880,15 @@ function App() {
     );
 
     setEpisodes(nextEpisodes);
+    setSelectedEpisode((currentEpisode) =>
+      currentEpisode && getEpisodeKey(currentEpisode) === getEpisodeKey(episode)
+        ? {
+            ...currentEpisode,
+            watched: shouldMarkWatched,
+            progress_percent: shouldMarkWatched ? 100 : 0,
+          }
+        : currentEpisode,
+    );
     setEpisodeCache(nextEpisodeCache);
     setCloudWatchedRecords(nextWatchedRecords);
     setSelectedSeries(nextSelectedSeries);
@@ -897,6 +976,15 @@ function App() {
     );
 
     setEpisodes(nextEpisodes);
+    setSelectedEpisode((currentEpisode) =>
+      currentEpisode && changedEpisodeKeys.has(getEpisodeKey(currentEpisode))
+        ? {
+            ...currentEpisode,
+            watched: shouldMarkWatched,
+            progress_percent: shouldMarkWatched ? 100 : 0,
+          }
+        : currentEpisode,
+    );
     setEpisodeCache(nextEpisodeCache);
     setCloudWatchedRecords(nextWatchedRecords);
     setSelectedSeries(nextSelectedSeries);
@@ -1094,10 +1182,6 @@ function App() {
     localRuntimeMinutes > 0
       ? localRuntimeMinutes
       : (stats.overview?.total_runtime_minutes ?? 0);
-
-  const activeWatchDays = new Set(
-    watchedRecords.map((record) => record.watched_at.slice(0, 10)),
-  ).size;
 
   const selectedEpisodeTotals = useMemo(() => {
     const regularEpisodes = episodes.filter(
@@ -1301,15 +1385,12 @@ function App() {
     );
 
     return Array.from(byEpisode.values())
+      .filter((episode) => Boolean(episode.air_date?.trim()))
       .sort((episodeA, episodeB) => {
-        const dateA = episodeA.air_date
-          ? new Date(episodeA.air_date).getTime()
-          : Number.MAX_SAFE_INTEGER;
-        const dateB = episodeB.air_date
-          ? new Date(episodeB.air_date).getTime()
-          : Number.MAX_SAFE_INTEGER;
+        const dateA = new Date(episodeA.air_date ?? "").getTime();
+        const dateB = new Date(episodeB.air_date ?? "").getTime();
 
-        if (dateA !== dateB) return dateA - dateB;
+        if (dateA !== dateB) return dateB - dateA;
 
         return String(episodeA.series_title ?? "").localeCompare(
           String(episodeB.series_title ?? ""),
@@ -1351,9 +1432,9 @@ function App() {
       tone: "amber",
     },
     {
-      label: "Dias ativos assistindo",
-      value: String(activeWatchDays),
-      icon: CalendarDays,
+      label: "Séries em andamento",
+      value: String(continueWatching.length),
+      icon: Star,
       layout: "wide",
       tone: "green",
     },
@@ -1467,6 +1548,18 @@ function App() {
     });
   };
 
+  const selectSeriesModalTab = (tab: SeriesModalTab) => {
+    if (tab === seriesModalTab) return;
+
+    const currentIndex = seriesModalTabOrder.indexOf(seriesModalTab);
+    const nextIndex = seriesModalTabOrder.indexOf(tab);
+
+    setSeriesModalTabTransitionDirection(
+      nextIndex > currentIndex ? "slide-left" : "slide-right",
+    );
+    setSeriesModalTab(tab);
+  };
+
   const getLibraryEmptyMessage = () => {
     if (libraryFilter === "watching") {
       return "Nenhuma série com episódios em andamento.";
@@ -1537,6 +1630,16 @@ function App() {
       },
     ];
   }, [selectedEpisodeTotals, selectedSeries, seasonGroups.length]);
+
+  const selectedSeriesStarCount = getTmdbStarCount(
+    selectedSeries?.vote_average,
+  );
+
+  const selectedWatchProviders = selectedSeries
+    ? (watchProvidersBySeries[selectedSeries.id] ??
+      selectedSeries.watch_providers ??
+      [])
+    : [];
 
   const renderLibraryCard = (series: TrackedSeries) => {
     const seriesStatus = getLibrarySeriesStatus(series);
@@ -2251,6 +2354,27 @@ function App() {
               <div className="series-modal-title">
                 <h2 id="series-modal-title">{selectedSeries.title}</h2>
                 <p>{getLibrarySeriesMeta(selectedSeries)}</p>
+                <div
+                  className="series-rating-line"
+                  aria-label={`Nota TMDb ${selectedSeries.vote_average?.toFixed(1) ?? "indisponível"}`}
+                >
+                  {Array.from({ length: 5 }).map((_, index) => (
+                    <Star
+                      key={index}
+                      className={
+                        index < selectedSeriesStarCount
+                          ? "series-rating-star filled"
+                          : "series-rating-star"
+                      }
+                      aria-hidden="true"
+                    />
+                  ))}
+                  <span>
+                    {selectedSeries.vote_average
+                      ? selectedSeries.vote_average.toFixed(1)
+                      : "-"}
+                  </span>
+                </div>
               </div>
               <button
                 type="button"
@@ -2272,7 +2396,7 @@ function App() {
                     ? "series-modal-tab active"
                     : "series-modal-tab"
                 }
-                onClick={() => setSeriesModalTab("details")}
+                onClick={() => selectSeriesModalTab("details")}
               >
                 Descrição
               </button>
@@ -2285,13 +2409,17 @@ function App() {
                     ? "series-modal-tab active"
                     : "series-modal-tab"
                 }
-                onClick={() => setSeriesModalTab("seasons")}
+                onClick={() => selectSeriesModalTab("seasons")}
               >
                 Temporadas
               </button>
             </div>
 
             <div className="series-modal-content">
+              <div
+                key={seriesModalTab}
+                className={`series-modal-tab-content ${seriesModalTabTransitionDirection}`}
+              >
               {seriesModalTab === "details" ? (
                 <div className="series-overview-panel">
                   <p className="series-overview-text">
@@ -2340,6 +2468,34 @@ function App() {
                     </div>
                   ) : null}
 
+                  {selectedWatchProviders.length > 0 && (
+                    <section className="streaming-section">
+                      <h3>Onde assistir</h3>
+                      <div className="streaming-provider-list">
+                        {selectedWatchProviders.map((provider) => (
+                          <button
+                            key={`${provider.name}-${provider.type ?? ""}`}
+                            type="button"
+                            className="streaming-provider-button"
+                          >
+                            {provider.logo_path ? (
+                              <img
+                                src={tmdbImageUrl(provider.logo_path, "w92")}
+                                alt=""
+                                loading="lazy"
+                              />
+                            ) : (
+                              <span aria-hidden="true">
+                                {provider.name.slice(0, 1)}
+                              </span>
+                            )}
+                            <strong>{provider.name}</strong>
+                          </button>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+
                   <section className="series-cast-section">
                     <h3>Atores</h3>
                     {selectedSeries.actors?.length ? (
@@ -2375,7 +2531,20 @@ function App() {
 
                     return (
                       <section key={group.seasonNumber} className="season-group">
-                        <div className="season-header">
+                        <div
+                          className={
+                            group.posterPath
+                              ? "season-header season-header-with-art"
+                              : "season-header"
+                          }
+                          style={
+                            group.posterPath
+                              ? {
+                                  backgroundImage: `linear-gradient(90deg, rgba(6, 10, 9, 0.9), rgba(6, 10, 9, 0.68)), url(${tmdbImageUrl(group.posterPath, "w342")})`,
+                                }
+                              : undefined
+                          }
+                        >
                           <button
                             type="button"
                             className="season-toggle"
@@ -2414,6 +2583,18 @@ function App() {
                               <div
                                 key={episode.id}
                                 className={`card episode-card ${episode.watched ? "episode-card-watched" : ""}`}
+                                role="button"
+                                tabIndex={0}
+                                onClick={() => setSelectedEpisode(episode)}
+                                onKeyDown={(event) => {
+                                  if (
+                                    event.key === "Enter" ||
+                                    event.key === " "
+                                  ) {
+                                    event.preventDefault();
+                                    setSelectedEpisode(episode);
+                                  }
+                                }}
                               >
                                 <MediaImage
                                   path={episode.still_path}
@@ -2437,7 +2618,10 @@ function App() {
                                 </div>
                                 <button
                                   type="button"
-                                  onClick={() => toggleEpisodeWatch(episode)}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    toggleEpisodeWatch(episode);
+                                  }}
                                 >
                                   {episode.watched
                                     ? "Desmarcar"
@@ -2452,6 +2636,86 @@ function App() {
                   })}
                 </div>
               )}
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {selectedSeries && selectedEpisode && (
+        <div
+          className="episode-modal-backdrop"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setSelectedEpisode(null);
+            }
+          }}
+        >
+          <section
+            className="episode-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="episode-modal-title"
+          >
+            <MediaImage
+              path={selectedEpisode.still_path ?? selectedSeries.poster_path}
+              alt={`Imagem de ${selectedEpisode.title ?? "episódio"}`}
+              className="episode-modal-image"
+              fallback="Sem imagem"
+              size="w500"
+            />
+            <div className="episode-modal-copy">
+              <div className="episode-modal-heading">
+                <span className="status-chip">
+                  S{selectedEpisode.season_number}E
+                  {selectedEpisode.episode_number}
+                </span>
+                <button
+                  type="button"
+                  className="icon-button episode-modal-close"
+                  aria-label="Fechar detalhes do episódio"
+                  onClick={() => setSelectedEpisode(null)}
+                >
+                  <X aria-hidden="true" />
+                </button>
+              </div>
+
+              <h2 id="episode-modal-title">
+                {selectedEpisode.title ?? "Sem título"}
+              </h2>
+              <p>
+                {formatDate(selectedEpisode.air_date)} ·{" "}
+                {selectedEpisode.runtime ?? 0} min
+              </p>
+
+              {selectedEpisode.vote_average ? (
+                <div className="series-rating-line">
+                  {Array.from({ length: 5 }).map((_, index) => (
+                    <Star
+                      key={index}
+                      className={
+                        index < getTmdbStarCount(selectedEpisode.vote_average)
+                          ? "series-rating-star filled"
+                          : "series-rating-star"
+                      }
+                      aria-hidden="true"
+                    />
+                  ))}
+                  <span>{selectedEpisode.vote_average.toFixed(1)}</span>
+                </div>
+              ) : null}
+
+              <p className="episode-modal-overview">
+                {selectedEpisode.overview || "Sem descrição disponível."}
+              </p>
+
+              <button
+                type="button"
+                className="episode-modal-watch-button"
+                onClick={() => toggleEpisodeWatch(selectedEpisode)}
+              >
+                {selectedEpisode.watched ? "Desmarcar episódio" : "Marcar como visto"}
+              </button>
             </div>
           </section>
         </div>

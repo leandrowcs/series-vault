@@ -68,8 +68,31 @@ function toTrackedSeries(data) {
       character: actor.character || null,
       profile_path: actor.profile_path || null,
     })),
+    watch_providers: serializeWatchProviders(data['watch/providers']),
     last_synced_at: new Date().toISOString(),
   }
+}
+
+function serializeWatchProviders(data) {
+  const results = (data && data.results) || {}
+  const countryData = results.BR || results.US || Object.values(results)[0] || {}
+  const providerTypes = ['flatrate', 'ads', 'free', 'rent', 'buy']
+  const providersById = new Map()
+
+  providerTypes.forEach((providerType) => {
+    ;(countryData[providerType] || []).forEach((provider) => {
+      const providerId = provider.provider_id || provider.provider_name
+      if (!providersById.has(providerId)) {
+        providersById.set(providerId, {
+          name: provider.provider_name,
+          logo_path: provider.logo_path || null,
+          type: providerType,
+        })
+      }
+    })
+  })
+
+  return Array.from(providersById.values()).filter((provider) => provider.name)
 }
 
 function handleError(res, error) {
@@ -80,6 +103,7 @@ function handleError(res, error) {
 module.exports = {
   handleError,
   sendJson,
+  serializeWatchProviders,
   tmdbFetch,
   toTrackedSeries,
 }

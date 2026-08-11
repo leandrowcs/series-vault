@@ -6,7 +6,7 @@ from app.api.schemas import SeriesCreate
 from app.db.session import get_session
 from app.db.models import Series, Season, Episode, EpisodeWatch
 from app.services.sync_service import sync_series_by_tmdb_id
-from app.services.tmdb_client import tmdb_search_by_name
+from app.services.tmdb_client import tmdb_get_watch_providers, tmdb_search_by_name
 
 router = APIRouter()
 
@@ -53,6 +53,25 @@ def _serialize_tracked_series(series: Series, completed_percent: float = 0) -> d
         ],
         "last_synced_at": series.last_synced_at,
     }
+
+
+def _serialize_watch_providers(data: dict) -> list[dict]:
+    results = data.get("results", {})
+    country_data = results.get("BR") or results.get("US") or next(iter(results.values()), {})
+    provider_types = ("flatrate", "ads", "free", "rent", "buy")
+    providers_by_id = {}
+
+    for provider_type in provider_types:
+        for provider in country_data.get(provider_type, []):
+            provider_id = provider.get("provider_id") or provider.get("provider_name")
+            if provider_id not in providers_by_id:
+                providers_by_id[provider_id] = {
+                    "name": provider.get("provider_name"),
+                    "logo_path": provider.get("logo_path"),
+                    "type": provider_type,
+                }
+
+    return [provider for provider in providers_by_id.values() if provider.get("name")]
 
 
 @router.get("", include_in_schema=False)
@@ -116,6 +135,20 @@ def add_series_with_slash(series_create: SeriesCreate = Body(...), session: Sess
     return add_series(series_create, session)
 
 
+@router.get("/{series_id}/watch-providers")
+def get_series_watch_providers(series_id: int = Path(..., gt=0), session: Session = Depends(get_session)) -> List[dict]:
+    series = session.get(Series, series_id)
+    if not series:
+        raise HTTPException(status_code=404, detail="Series not found")
+
+    try:
+        return _serialize_watch_providers(tmdb_get_watch_providers(series.tmdb_id))
+    except httpx.RequestError as exc:
+        raise _tmdb_http_exception(exc)
+    except httpx.HTTPStatusError as exc:
+        raise HTTPException(status_code=502, detail=f"TMDb returned status {exc.response.status_code}")
+
+
 @router.get("/{series_id}")
 def get_series(series_id: int = Path(..., gt=0), session: Session = Depends(get_session)):
     series = session.get(Series, series_id)
@@ -146,6 +179,10 @@ def get_series_episodes(series_id: int = Path(..., gt=0), session: Session = Dep
                     "air_date": episode.air_date,
                     "runtime": episode.runtime,
                     "still_path": episode.still_path,
+                    "vote_average": episode.vote_average,
+                    "vote_count": episode.vote_count,
+                    "season_name": season.name,
+                    "season_poster_path": season.poster_path,
                     "watched": bool(watched),
                     "progress_percent": watched.progress_percent if watched else 0,
                 }
