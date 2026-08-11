@@ -51,8 +51,13 @@ function parseBody(req) {
 }
 
 function getRouteParts(req) {
-  if (Array.isArray(req.query.path)) return req.query.path
-  if (typeof req.query.path === 'string') return [req.query.path]
+  if (Array.isArray(req.query.path)) {
+    return req.query.path.flatMap((part) => String(part).split('/')).filter(Boolean)
+  }
+
+  if (typeof req.query.path === 'string') {
+    return req.query.path.split('/').filter(Boolean)
+  }
 
   const url = new URL(req.url, 'http://localhost')
   return url.pathname.replace(/^\/api\/?/, '').split('/').filter(Boolean)
