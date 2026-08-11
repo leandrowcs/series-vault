@@ -173,6 +173,24 @@ const formatDate = (dateString?: string) => {
   });
 };
 
+const parseEpisodeReleaseTime = (dateString?: string) => {
+  const normalizedDate = dateString?.trim();
+  if (!normalizedDate) return undefined;
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(normalizedDate)) {
+    const [year, month, day] = normalizedDate.split("-").map(Number);
+    return new Date(year, month - 1, day).getTime();
+  }
+
+  const releaseTime = new Date(normalizedDate).getTime();
+  return Number.isNaN(releaseTime) ? undefined : releaseTime;
+};
+
+const isEpisodeReleased = (episode: EpisodeDetail, now = new Date()) => {
+  const releaseTime = parseEpisodeReleaseTime(episode.air_date);
+  return releaseTime !== undefined && releaseTime <= now.getTime();
+};
+
 const formatWatchDuration = (minutes: number) => {
   const totalHours = Math.round(minutes / 60);
   if (totalHours <= 0) return "0 horas";
@@ -1066,6 +1084,10 @@ function App() {
 
   const toggleEpisodeWatch = async (episode: EpisodeDetail) => {
     if (!selectedSeries) return;
+    if (!isEpisodeReleased(episode)) {
+      setError("Este episódio ainda não foi lançado.");
+      return;
+    }
 
     const shouldMarkWatched = !episode.watched;
     const nextWatchedRecords = new Map(cloudWatchedRecords);
@@ -1165,9 +1187,13 @@ function App() {
     if (!selectedSeries) return;
 
     const changedEpisodes = group.episodes.filter(
-      (episode) => episode.watched !== shouldMarkWatched,
+      (episode) =>
+        isEpisodeReleased(episode) && episode.watched !== shouldMarkWatched,
     );
-    if (changedEpisodes.length === 0) return;
+    if (changedEpisodes.length === 0) {
+      setError("Nenhum episódio lançado para atualizar nesta temporada.");
+      return;
+    }
 
     const changedEpisodeKeys = new Set(changedEpisodes.map(getEpisodeKey));
     const nextWatchedRecords = new Map(cloudWatchedRecords);
@@ -2978,8 +3004,17 @@ function App() {
                 <div className="season-list series-modal-season-list">
                   {seasonGroups.map((group) => {
                     const isExpanded = expandedSeasons.has(group.seasonNumber);
-                    const isSeasonComplete =
-                      group.watchedCount === group.episodes.length;
+                    const releasedEpisodes = group.episodes.filter((episode) =>
+                      isEpisodeReleased(episode),
+                    );
+                    const releasedWatchedCount = releasedEpisodes.filter(
+                      (episode) => episode.watched,
+                    ).length;
+                    const isReleasedSeasonComplete =
+                      releasedEpisodes.length > 0 &&
+                      releasedWatchedCount === releasedEpisodes.length;
+                    const isSeasonButtonDisabled =
+                      releasedEpisodes.length === 0;
                     const seasonTitle = `Temporada ${group.seasonNumber}`;
 
                     return (
@@ -3019,12 +3054,27 @@ function App() {
                           </button>
                           <button
                             type="button"
-                            className="season-watch-button"
+                            className={`season-watch-button ${
+                              isReleasedSeasonComplete
+                                ? "watch-button-watched"
+                                : "watch-button-unwatched"
+                            }`}
+                            disabled={isSeasonButtonDisabled}
+                            title={
+                              isSeasonButtonDisabled
+                                ? "Disponível quando houver episódios lançados"
+                                : undefined
+                            }
                             onClick={() =>
-                              setSeasonWatchState(group, !isSeasonComplete)
+                              setSeasonWatchState(
+                                group,
+                                !isReleasedSeasonComplete,
+                              )
                             }
                           >
-                            {isSeasonComplete
+                            {isSeasonButtonDisabled
+                              ? "Em breve"
+                              : isReleasedSeasonComplete
                               ? "Desmarcar temporada"
                               : "Marcar temporada"}
                           </button>
@@ -3032,56 +3082,73 @@ function App() {
 
                         {isExpanded && (
                           <div className="season-episodes">
-                            {group.episodes.map((episode) => (
-                              <div
-                                key={episode.id}
-                                className={`card episode-card ${episode.watched ? "episode-card-watched" : ""}`}
-                                role="button"
-                                tabIndex={0}
-                                onClick={() => setSelectedEpisode(episode)}
-                                onKeyDown={(event) => {
-                                  if (
-                                    event.key === "Enter" ||
-                                    event.key === " "
-                                  ) {
-                                    event.preventDefault();
-                                    setSelectedEpisode(episode);
-                                  }
-                                }}
-                              >
-                                <MediaImage
-                                  path={episode.still_path}
-                                  alt={`Imagem de ${episode.title ?? "episódio"}`}
-                                  className="episode-still"
-                                  fallback="Sem imagem"
-                                  size="w300"
-                                />
-                                <div className="episode-copy">
-                                  <strong>
-                                    E{episode.episode_number}:{" "}
-                                    {episode.title ?? "Sem título"}
-                                  </strong>
-                                  <p>
-                                    {formatDate(episode.air_date)} ·{" "}
-                                    {episode.runtime ?? 0} min
-                                  </p>
-                                  <p className="item-description">
-                                    {episode.overview}
-                                  </p>
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    toggleEpisodeWatch(episode);
+                            {group.episodes.map((episode) => {
+                              const isReleased = isEpisodeReleased(episode);
+
+                              return (
+                                <div
+                                  key={episode.id}
+                                  className={`card episode-card ${episode.watched ? "episode-card-watched" : ""}`}
+                                  role="button"
+                                  tabIndex={0}
+                                  onClick={() => setSelectedEpisode(episode)}
+                                  onKeyDown={(event) => {
+                                    if (
+                                      event.key === "Enter" ||
+                                      event.key === " "
+                                    ) {
+                                      event.preventDefault();
+                                      setSelectedEpisode(episode);
+                                    }
                                   }}
                                 >
-                                  {episode.watched
-                                    ? "Desmarcar"
-                                    : "Marcar como visto"}
-                                </button>
-                              </div>
-                            ))}
+                                  <MediaImage
+                                    path={episode.still_path}
+                                    alt={`Imagem de ${episode.title ?? "episódio"}`}
+                                    className="episode-still"
+                                    fallback="Sem imagem"
+                                    size="w300"
+                                  />
+                                  <div className="episode-copy">
+                                    <strong>
+                                      E{episode.episode_number}:{" "}
+                                      {episode.title ?? "Sem título"}
+                                    </strong>
+                                    <p>
+                                      {formatDate(episode.air_date)} ·{" "}
+                                      {episode.runtime ?? 0} min
+                                    </p>
+                                    <p className="item-description">
+                                      {episode.overview}
+                                    </p>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    className={`episode-watch-button ${
+                                      episode.watched
+                                        ? "watch-button-watched"
+                                        : "watch-button-unwatched"
+                                    }`}
+                                    disabled={!isReleased}
+                                    title={
+                                      isReleased
+                                        ? undefined
+                                        : "Disponível a partir do lançamento"
+                                    }
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      toggleEpisodeWatch(episode);
+                                    }}
+                                  >
+                                    {!isReleased
+                                      ? "Em breve"
+                                      : episode.watched
+                                        ? "Desmarcar"
+                                        : "Marcar como visto"}
+                                  </button>
+                                </div>
+                              );
+                            })}
                           </div>
                         )}
                       </section>
@@ -3164,10 +3231,24 @@ function App() {
 
               <button
                 type="button"
-                className="episode-modal-watch-button"
+                className={`episode-modal-watch-button ${
+                  selectedEpisode.watched
+                    ? "watch-button-watched"
+                    : "watch-button-unwatched"
+                }`}
+                disabled={!isEpisodeReleased(selectedEpisode)}
+                title={
+                  isEpisodeReleased(selectedEpisode)
+                    ? undefined
+                    : "Disponível a partir do lançamento"
+                }
                 onClick={() => toggleEpisodeWatch(selectedEpisode)}
               >
-                {selectedEpisode.watched ? "Desmarcar episódio" : "Marcar como visto"}
+                {!isEpisodeReleased(selectedEpisode)
+                  ? "Em breve"
+                  : selectedEpisode.watched
+                    ? "Desmarcar episódio"
+                    : "Marcar como visto"}
               </button>
             </div>
           </section>

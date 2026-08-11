@@ -1804,6 +1804,32 @@
   font-weight: 900;
 }
 
+.season-watch-button.watch-button-unwatched,
+.episode-watch-button.watch-button-unwatched,
+.episode-modal-watch-button.watch-button-unwatched {
+  border: 1px solid rgba(20, 160, 133, 0.46);
+  background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+  color: var(--text);
+}
+
+.season-watch-button.watch-button-watched,
+.episode-watch-button.watch-button-watched,
+.episode-modal-watch-button.watch-button-watched {
+  border: 1px solid rgba(224, 82, 82, 0.5);
+  background: rgba(224, 82, 82, 0.14);
+  color: #ffb4b4;
+}
+
+.season-watch-button:disabled,
+.episode-watch-button:disabled,
+.episode-modal-watch-button:disabled {
+  cursor: not-allowed;
+  border-color: rgba(232, 241, 238, 0.14);
+  background: rgba(232, 241, 238, 0.07);
+  color: var(--muted);
+  opacity: 0.68;
+}
+
 .image-list,
 .poster-list {
   display: grid;
