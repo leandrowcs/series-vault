@@ -6,8 +6,30 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore'],
+        manualChunks(id) {
+          if (id.includes('node_modules/@firebase/webchannel-wrapper')) {
+            return 'firebase-webchannel'
+          }
+
+          if (
+            id.includes('node_modules/@firebase/component') ||
+            id.includes('node_modules/@firebase/logger') ||
+            id.includes('node_modules/@firebase/util')
+          ) {
+            return 'firebase-shared'
+          }
+
+          if (id.includes('node_modules/@firebase/firestore') || id.includes('node_modules/firebase/firestore')) {
+            return 'firebase-firestore'
+          }
+
+          if (id.includes('node_modules/@firebase/auth') || id.includes('node_modules/firebase/auth')) {
+            return 'firebase-auth'
+          }
+
+          if (id.includes('node_modules/@firebase/app') || id.includes('node_modules/firebase/app')) {
+            return 'firebase-app'
+          }
         },
       },
     },
