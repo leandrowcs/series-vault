@@ -1676,9 +1676,21 @@
 }
 
 .season-watch-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
   align-self: center;
+  min-height: 36px;
   margin: 5px;
+  font-size: 0.72rem;
   white-space: nowrap;
+}
+
+.season-watch-button svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2.4;
 }
 
 .season-title {
@@ -1697,12 +1709,26 @@
 }
 
 .episode-card {
-  grid-template-columns: 120px minmax(0, 1fr);
+  grid-template-columns: 120px minmax(0, 1fr) 38px;
   cursor: pointer;
 }
 
-.episode-card button {
-  grid-column: 1 / -1;
+.episode-watch-toggle {
+  display: grid;
+  grid-column: 3;
+  grid-row: 1;
+  place-items: center;
+  width: 36px;
+  aspect-ratio: 1;
+  justify-self: end;
+  padding: 0 !important;
+  border-radius: 8px;
+}
+
+.episode-watch-toggle svg {
+  width: 20px;
+  height: 20px;
+  stroke-width: 2.3;
 }
 
 .episode-card-watched {
@@ -1796,6 +1822,10 @@
 }
 
 .episode-modal-watch-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   min-height: 42px;
   border: 0;
   border-radius: 8px;
@@ -1804,8 +1834,14 @@
   font-weight: 900;
 }
 
+.episode-modal-watch-button svg {
+  width: 18px;
+  height: 18px;
+  stroke-width: 2.4;
+}
+
 .season-watch-button.watch-button-unwatched,
-.episode-watch-button.watch-button-unwatched,
+.episode-watch-toggle.watch-button-unwatched,
 .episode-modal-watch-button.watch-button-unwatched {
   border: 1px solid rgba(20, 160, 133, 0.46);
   background: linear-gradient(135deg, var(--primary), var(--primary-hover));
@@ -1813,7 +1849,7 @@
 }
 
 .season-watch-button.watch-button-watched,
-.episode-watch-button.watch-button-watched,
+.episode-watch-toggle.watch-button-watched,
 .episode-modal-watch-button.watch-button-watched {
   border: 1px solid rgba(224, 82, 82, 0.5);
   background: rgba(224, 82, 82, 0.14);
@@ -1821,7 +1857,7 @@
 }
 
 .season-watch-button:disabled,
-.episode-watch-button:disabled,
+.episode-watch-toggle:disabled,
 .episode-modal-watch-button:disabled {
   cursor: not-allowed;
   border-color: rgba(232, 241, 238, 0.14);

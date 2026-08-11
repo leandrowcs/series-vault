@@ -18,6 +18,8 @@ import {
   ChevronDown,
   Search,
   Star,
+  Square,
+  SquareCheckBig,
   Tv,
   X,
   type LucideIcon,
@@ -3015,6 +3017,16 @@ function App() {
                       releasedWatchedCount === releasedEpisodes.length;
                     const isSeasonButtonDisabled =
                       releasedEpisodes.length === 0;
+                    const SeasonWatchIcon = isReleasedSeasonComplete
+                      ? SquareCheckBig
+                      : Square;
+                    const seasonWatchLabel = isSeasonButtonDisabled
+                      ? "Em breve"
+                      : isReleasedSeasonComplete
+                        ? "Desmarcar temporada"
+                        : releasedWatchedCount > 0
+                          ? "Marcar restantes"
+                          : "Marcar temporada";
                     const seasonTitle = `Temporada ${group.seasonNumber}`;
 
                     return (
@@ -3065,6 +3077,7 @@ function App() {
                                 ? "Disponível quando houver episódios lançados"
                                 : undefined
                             }
+                            aria-label={seasonWatchLabel}
                             onClick={() =>
                               setSeasonWatchState(
                                 group,
@@ -3072,11 +3085,8 @@ function App() {
                               )
                             }
                           >
-                            {isSeasonButtonDisabled
-                              ? "Em breve"
-                              : isReleasedSeasonComplete
-                              ? "Desmarcar temporada"
-                              : "Marcar temporada"}
+                            <SeasonWatchIcon aria-hidden="true" />
+                            <span>{seasonWatchLabel}</span>
                           </button>
                         </div>
 
@@ -3084,6 +3094,14 @@ function App() {
                           <div className="season-episodes">
                             {group.episodes.map((episode) => {
                               const isReleased = isEpisodeReleased(episode);
+                              const EpisodeWatchIcon = episode.watched
+                                ? SquareCheckBig
+                                : Square;
+                              const episodeWatchLabel = !isReleased
+                                ? "Disponível a partir do lançamento"
+                                : episode.watched
+                                  ? "Desmarcar episódio visto"
+                                  : "Marcar episódio como visto";
 
                               return (
                                 <div
@@ -3124,27 +3142,20 @@ function App() {
                                   </div>
                                   <button
                                     type="button"
-                                    className={`episode-watch-button ${
+                                    className={`episode-watch-toggle ${
                                       episode.watched
                                         ? "watch-button-watched"
                                         : "watch-button-unwatched"
                                     }`}
+                                    aria-label={episodeWatchLabel}
                                     disabled={!isReleased}
-                                    title={
-                                      isReleased
-                                        ? undefined
-                                        : "Disponível a partir do lançamento"
-                                    }
+                                    title={episodeWatchLabel}
                                     onClick={(event) => {
                                       event.stopPropagation();
                                       toggleEpisodeWatch(episode);
                                     }}
                                   >
-                                    {!isReleased
-                                      ? "Em breve"
-                                      : episode.watched
-                                        ? "Desmarcar"
-                                        : "Marcar como visto"}
+                                    <EpisodeWatchIcon aria-hidden="true" />
                                   </button>
                                 </div>
                               );
@@ -3162,7 +3173,20 @@ function App() {
         </div>
       )}
 
-      {selectedSeries && selectedEpisode && (
+      {selectedSeries &&
+        selectedEpisode &&
+        (() => {
+          const isSelectedEpisodeReleased = isEpisodeReleased(selectedEpisode);
+          const SelectedEpisodeWatchIcon = selectedEpisode.watched
+            ? SquareCheckBig
+            : Square;
+          const selectedEpisodeWatchLabel = !isSelectedEpisodeReleased
+            ? "Em breve"
+            : selectedEpisode.watched
+              ? "Desmarcar episódio visto"
+              : "Marcar episódio como visto";
+
+          return (
         <div
           className="episode-modal-backdrop"
           onMouseDown={(event) => {
@@ -3236,24 +3260,23 @@ function App() {
                     ? "watch-button-watched"
                     : "watch-button-unwatched"
                 }`}
-                disabled={!isEpisodeReleased(selectedEpisode)}
+                disabled={!isSelectedEpisodeReleased}
                 title={
-                  isEpisodeReleased(selectedEpisode)
-                    ? undefined
+                  isSelectedEpisodeReleased
+                    ? selectedEpisodeWatchLabel
                     : "Disponível a partir do lançamento"
                 }
+                aria-label={selectedEpisodeWatchLabel}
                 onClick={() => toggleEpisodeWatch(selectedEpisode)}
               >
-                {!isEpisodeReleased(selectedEpisode)
-                  ? "Em breve"
-                  : selectedEpisode.watched
-                    ? "Desmarcar episódio"
-                    : "Marcar como visto"}
+                <SelectedEpisodeWatchIcon aria-hidden="true" />
+                <span>{selectedEpisodeWatchLabel}</span>
               </button>
             </div>
           </section>
         </div>
-      )}
+          );
+        })()}
 
       <section
         className={isSearchOpen ? "search-drawer open" : "search-drawer"}
