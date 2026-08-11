@@ -41,6 +41,10 @@ export const saveCloudTrackedSeries = async (uid: string, series: TrackedSeries)
   )
 }
 
+export const deleteCloudTrackedSeries = async (uid: string, series: Pick<TrackedSeries, 'tmdb_id'>) => {
+  await deleteDoc(doc(trackedCollection(uid), String(series.tmdb_id)))
+}
+
 export const loadCloudWatchedEpisodes = async (uid: string): Promise<WatchedEpisodeRecord[]> => {
   const snapshot = await getDocs(watchedCollection(uid))
   return snapshot.docs.map((item) => item.data() as WatchedEpisodeRecord)
@@ -69,6 +73,15 @@ export const saveCloudWatchedEpisode = async (
 
 export const deleteCloudWatchedEpisode = async (uid: string, episode: EpisodeDetail) => {
   await deleteDoc(doc(watchedCollection(uid), getEpisodeKey(episode)))
+}
+
+export const deleteCloudWatchedEpisodesForSeries = async (uid: string, series: Pick<TrackedSeries, 'tmdb_id'>) => {
+  const snapshot = await getDocs(watchedCollection(uid))
+  await Promise.all(
+    snapshot.docs
+      .filter((item) => (item.data() as WatchedEpisodeRecord).series_tmdb_id === series.tmdb_id)
+      .map((item) => deleteDoc(item.ref)),
+  )
 }
 
 export const publishCloudProfile = async (uid: string, user: { name: string; email: string; picture: string }) => {

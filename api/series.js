@@ -139,6 +139,24 @@ module.exports = async function handler(req, res) {
       return
     }
 
+    if (req.method === 'PATCH' && route === 'status') {
+      sendJson(res, 200, {
+        series_id: Number(req.query.seriesId || 0) || null,
+        tmdb_id: Number(req.query.tmdbId || 0) || null,
+        user_status: parseBody(req).user_status || null,
+      })
+      return
+    }
+
+    if (req.method === 'DELETE') {
+      sendJson(res, 200, {
+        detail: 'Series removed',
+        series_id: Number(req.query.seriesId || 0) || null,
+        tmdb_id: Number(req.query.tmdbId || 0) || null,
+      })
+      return
+    }
+
     sendJson(res, 405, { detail: 'Method not allowed' })
   } catch (error) {
     handleError(res, error)

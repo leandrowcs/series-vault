@@ -4,7 +4,7 @@ import httpx
 from sqlmodel import Session, select
 from app.api.schemas import SeriesCreate
 from app.db.session import get_session
-from app.db.models import Series, Season, Episode, EpisodeWatch
+from app.db.models import Episode, EpisodeWatch, Series, SeriesCast, SeriesGenre, Season
 from app.services.sync_service import sync_series_by_tmdb_id
 from app.services.tmdb_client import (
     tmdb_get_trending_tv,
@@ -76,6 +76,40 @@ def _serialize_watch_providers(data: dict) -> list[dict]:
                 }
 
     return [provider for provider in providers_by_id.values() if provider.get("name")]
+
+
+def _find_series_by_query_ids(
+    session: Session,
+    series_id: Optional[int],
+    tmdb_id: Optional[int],
+) -> Series:
+    series = session.get(Series, series_id) if series_id else None
+    if series is None and tmdb_id:
+        series = session.exec(select(Series).where(Series.tmdb_id == tmdb_id)).first()
+    if not series:
+        raise HTTPException(status_code=404, detail="Series not found")
+    return series
+
+
+def _delete_series(session: Session, series: Series) -> None:
+    seasons = session.exec(select(Season).where(Season.series_id == series.id)).all()
+    for season in seasons:
+        episodes = session.exec(select(Episode).where(Episode.season_id == season.id)).all()
+        for episode in episodes:
+            watches = session.exec(select(EpisodeWatch).where(EpisodeWatch.episode_id == episode.id)).all()
+            for watch in watches:
+                session.delete(watch)
+            session.delete(episode)
+        session.delete(season)
+
+    for genre_mapping in session.exec(select(SeriesGenre).where(SeriesGenre.series_id == series.id)).all():
+        session.delete(genre_mapping)
+
+    for cast_mapping in session.exec(select(SeriesCast).where(SeriesCast.series_id == series.id)).all():
+        session.delete(cast_mapping)
+
+    session.delete(series)
+    session.commit()
 
 
 @router.get("", include_in_schema=False)
@@ -178,6 +212,42 @@ def add_series(series_create: SeriesCreate = Body(...), session: Session = Depen
 @router.post("/")
 def add_series_with_slash(series_create: SeriesCreate = Body(...), session: Session = Depends(get_session)):
     return add_series(series_create, session)
+
+
+@router.patch("", include_in_schema=False)
+def update_series_status_entrypoint(
+    route: Optional[str] = Query(default=None),
+    series_id: Optional[int] = Query(default=None, alias="seriesId", gt=0),
+    tmdb_id: Optional[int] = Query(default=None, alias="tmdbId", gt=0),
+    payload: Optional[dict] = Body(default=None),
+    session: Session = Depends(get_session),
+):
+    if route != "status":
+        raise HTTPException(status_code=404, detail="Not found")
+
+    series = _find_series_by_query_ids(session, series_id, tmdb_id)
+    return {
+        "series_id": series.id,
+        "tmdb_id": series.tmdb_id,
+        "user_status": (payload or {}).get("user_status"),
+    }
+
+
+@router.delete("", include_in_schema=False)
+def delete_series_entrypoint(
+    series_id: Optional[int] = Query(default=None, alias="seriesId", gt=0),
+    tmdb_id: Optional[int] = Query(default=None, alias="tmdbId", gt=0),
+    session: Session = Depends(get_session),
+):
+    series = _find_series_by_query_ids(session, series_id, tmdb_id)
+    deleted_series_id = series.id
+    deleted_tmdb_id = series.tmdb_id
+    _delete_series(session, series)
+    return {
+        "detail": "Series removed",
+        "series_id": deleted_series_id,
+        "tmdb_id": deleted_tmdb_id,
+    }
 
 
 @router.get("/{series_id}/watch-providers")

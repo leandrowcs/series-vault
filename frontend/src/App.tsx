@@ -25,6 +25,8 @@ import {
 import { useCloudAuth } from "./hooks/useCloudAuth";
 import { useGoogleDriveBackup } from "./hooks/useGoogleDriveBackup";
 import {
+  deleteCloudTrackedSeries,
+  deleteCloudWatchedEpisodesForSeries,
   deleteCloudWatchedEpisode,
   getEpisodeKey,
   loadCloudTrackedSeries,
@@ -90,6 +92,13 @@ type LibrarySeriesGroup = {
   series: TrackedSeries[];
   collapsible: boolean;
 };
+
+type SeriesActionValue =
+  | "added"
+  | "abandoned"
+  | "abandon"
+  | "reactivate"
+  | "remove";
 
 type UpcomingEpisodeItem = CalendarEvent & {
   source: "calendar" | "watchlist";
@@ -821,6 +830,14 @@ function App() {
   };
 
   const addSeries = async (tmdb_id: number) => {
+    const existingSeries = tracked.find((series) => series.tmdb_id === tmdb_id);
+    if (existingSeries) {
+      setSelectedSeries(existingSeries);
+      setActiveTab("tracked");
+      setIsSearchOpen(false);
+      return;
+    }
+
     if (!hasApi) {
       setError(
         "API TMDb não configurada neste ambiente. Configure VITE_API_BASE_URL na Vercel.",
@@ -842,6 +859,159 @@ function App() {
     } catch (err) {
       setLoading(false);
       setError(getApiErrorMessage(err, "Falha ao adicionar série"));
+    }
+  };
+
+  const abandonSeries = async (series: TrackedSeries) => {
+    const abandonedSeries: TrackedSeries = {
+      ...series,
+      user_status: "abandoned",
+      library_status: "abandoned",
+      personal_status: "abandoned",
+      last_synced_at: new Date().toISOString(),
+    };
+
+    setTracked((current) =>
+      current.map((item) =>
+        item.tmdb_id === series.tmdb_id ? abandonedSeries : item,
+      ),
+    );
+    setSelectedSeries((current) =>
+      current?.tmdb_id === series.tmdb_id ? abandonedSeries : current,
+    );
+
+    try {
+      if (auth.user) {
+        await saveCloudTrackedSeries(auth.user.uid, abandonedSeries);
+      }
+      if (hasApi) {
+        await api
+          .patch(
+            "/series",
+            { user_status: "abandoned" },
+            {
+              params: {
+                route: "status",
+                seriesId: series.id,
+                tmdbId: series.tmdb_id,
+              },
+            },
+          )
+          .catch(() => null);
+      }
+    } catch (err) {
+      setError("Falha ao abandonar série");
+    }
+  };
+
+  const reactivateSeries = async (series: TrackedSeries) => {
+    const {
+      user_status: _userStatus,
+      library_status: _libraryStatus,
+      personal_status: _personalStatus,
+      ...activeSeries
+    } = series;
+    const nextSeries: TrackedSeries = {
+      ...activeSeries,
+      last_synced_at: new Date().toISOString(),
+    };
+
+    setTracked((current) =>
+      current.map((item) =>
+        item.tmdb_id === series.tmdb_id ? nextSeries : item,
+      ),
+    );
+    setSelectedSeries((current) =>
+      current?.tmdb_id === series.tmdb_id ? nextSeries : current,
+    );
+
+    try {
+      if (auth.user) {
+        await saveCloudTrackedSeries(auth.user.uid, nextSeries);
+      }
+      if (hasApi) {
+        await api
+          .patch(
+            "/series",
+            { user_status: null },
+            {
+              params: {
+                route: "status",
+                seriesId: series.id,
+                tmdbId: series.tmdb_id,
+              },
+            },
+          )
+          .catch(() => null);
+      }
+    } catch (err) {
+      setError("Falha ao reativar série");
+    }
+  };
+
+  const removeSeriesFromLibrary = async (series: TrackedSeries) => {
+    setTracked((current) =>
+      current.filter((item) => item.tmdb_id !== series.tmdb_id),
+    );
+    setSelectedSeries((current) =>
+      current?.tmdb_id === series.tmdb_id ? null : current,
+    );
+    setEpisodes((current) =>
+      selectedSeries?.tmdb_id === series.tmdb_id ? [] : current,
+    );
+    setEpisodeCache((current) => {
+      const nextCache = { ...current };
+      delete nextCache[String(series.tmdb_id)];
+      return nextCache;
+    });
+    setCloudWatchedRecords((current) => {
+      const nextRecords = new Map(current);
+      nextRecords.forEach((record, key) => {
+        if (record.series_tmdb_id === series.tmdb_id) {
+          nextRecords.delete(key);
+        }
+      });
+      return nextRecords;
+    });
+
+    try {
+      if (auth.user) {
+        await Promise.all([
+          deleteCloudTrackedSeries(auth.user.uid, series),
+          deleteCloudWatchedEpisodesForSeries(auth.user.uid, series),
+        ]);
+      }
+      if (hasApi) {
+        await api
+          .delete("/series", {
+            params: {
+              seriesId: series.id,
+              tmdbId: series.tmdb_id,
+            },
+          })
+          .catch(() => null);
+      }
+    } catch (err) {
+      setError("Falha ao remover série");
+    }
+  };
+
+  const handleSeriesAction = async (
+    value: SeriesActionValue,
+    series: TrackedSeries,
+  ) => {
+    if (value === "abandon") {
+      await abandonSeries(series);
+      return;
+    }
+
+    if (value === "reactivate") {
+      await reactivateSeries(series);
+      return;
+    }
+
+    if (value === "remove") {
+      await removeSeriesFromLibrary(series);
     }
   };
 
@@ -1439,8 +1609,15 @@ function App() {
 
   const calendarUpcomingEpisodes = useMemo<UpcomingEpisodeItem[]>(() => {
     const byEpisode = new Map<string, UpcomingEpisodeItem>();
+    const abandonedSeriesIds = new Set(
+      tracked
+        .filter((series) => getLibrarySeriesStatus(series) === "abandoned")
+        .flatMap((series) => [series.id, series.tmdb_id]),
+    );
 
     [...calendarEvents, ...newEpisodes].forEach((episode) => {
+      if (abandonedSeriesIds.has(episode.series_id)) return;
+
       const key = [
         episode.episode_id,
         episode.series_id,
@@ -1457,7 +1634,7 @@ function App() {
     });
 
     return Array.from(byEpisode.values());
-  }, [calendarEvents, newEpisodes]);
+  }, [calendarEvents, newEpisodes, tracked]);
 
   const upcomingEpisodes = useMemo(() => {
     const byEpisode = new Map<string, UpcomingEpisodeItem>();
@@ -1775,6 +1952,37 @@ function App() {
       selectedSeries.watch_providers ??
       [])
     : [];
+
+  const renderSeriesActionSelect = (
+    series: TrackedSeries,
+    variant: "compact" | "modal" = "compact",
+  ) => {
+    const isAbandoned = getLibrarySeriesStatus(series) === "abandoned";
+
+    return (
+      <select
+        className={`series-action-select series-action-select-${variant}`}
+        aria-label={`Ações para ${series.title}`}
+        value={isAbandoned ? "abandoned" : "added"}
+        onClick={(event) => event.stopPropagation()}
+        onChange={(event) => {
+          const value = event.target.value as SeriesActionValue;
+          if (value === "added" || value === "abandoned") return;
+          void handleSeriesAction(value, series);
+        }}
+      >
+        <option value={isAbandoned ? "abandoned" : "added"}>
+          {isAbandoned ? "Largada" : "Adicionada"}
+        </option>
+        {isAbandoned ? (
+          <option value="reactivate">Reativar</option>
+        ) : (
+          <option value="abandon">Abandonar</option>
+        )}
+        <option value="remove">Remover</option>
+      </select>
+    );
+  };
 
   const renderLibraryCard = (series: TrackedSeries) => {
     const seriesStatus = getLibrarySeriesStatus(series);
@@ -2617,6 +2825,7 @@ function App() {
                       : "-"}
                   </span>
                 </div>
+                {renderSeriesActionSelect(selectedSeries, "modal")}
               </div>
               <button
                 type="button"
@@ -3008,25 +3217,38 @@ function App() {
             {results.length === 0 ? (
               <p className="empty-state">Busque por uma série para começar.</p>
             ) : (
-              results.map((item) => (
-                <div key={item.tmdb_id} className="card card-row media-card">
-                  <MediaImage
-                    path={item.poster_path}
-                    alt={`Capa de ${item.name}`}
-                    className="poster-thumb"
-                    fallback="Sem capa"
-                    size="w185"
-                  />
-                  <div className="card-copy">
-                    <strong>{item.name}</strong>
-                    <p>{formatDate(item.first_air_date)}</p>
-                    <p className="item-description">{item.overview}</p>
+              results.map((item) => {
+                const trackedSeries = tracked.find(
+                  (series) => series.tmdb_id === item.tmdb_id,
+                );
+
+                return (
+                  <div key={item.tmdb_id} className="card card-row media-card">
+                    <MediaImage
+                      path={item.poster_path}
+                      alt={`Capa de ${item.name}`}
+                      className="poster-thumb"
+                      fallback="Sem capa"
+                      size="w185"
+                    />
+                    <div className="card-copy">
+                      <strong>{item.name}</strong>
+                      <p>{formatDate(item.first_air_date)}</p>
+                      <p className="item-description">{item.overview}</p>
+                    </div>
+                    {trackedSeries ? (
+                      renderSeriesActionSelect(trackedSeries)
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => addSeries(item.tmdb_id)}
+                      >
+                        Adicionar
+                      </button>
+                    )}
                   </div>
-                  <button type="button" onClick={() => addSeries(item.tmdb_id)}>
-                    Adicionar
-                  </button>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>

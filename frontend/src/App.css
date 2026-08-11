@@ -1084,8 +1084,32 @@
 
 .search-row button,
 .card button,
-.season-watch-button {
+.season-watch-button,
+.series-action-select {
   padding: 10px 10px;
+}
+
+.series-action-select {
+  min-width: 112px;
+  min-height: 38px;
+  border: 1px solid rgba(20, 160, 133, 0.38);
+  border-radius: 8px;
+  background: rgba(15, 118, 110, 0.18);
+  color: var(--text);
+  font-size: 0.76rem;
+  font-weight: 900;
+  outline: none;
+}
+
+.series-action-select:hover,
+.series-action-select:focus {
+  border-color: var(--border-strong);
+  background: rgba(15, 118, 110, 0.26);
+}
+
+.series-action-select-modal {
+  width: fit-content;
+  max-width: 100%;
 }
 
 .search-results {
