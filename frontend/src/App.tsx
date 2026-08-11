@@ -1821,21 +1821,48 @@ function App() {
   const isCalendarAtCurrentMonth = isSameMonth(calendarMonth, new Date());
   const canOpenPreviousCalendarMonth = !isCalendarAtCurrentMonth;
   const calendarMonthLabel = formatMonthLabel(calendarMonth);
+  const calendarRangeStartDateKey = isCalendarAtCurrentMonth
+    ? todayDateKey
+    : toDateKey(getMonthStart(calendarMonth));
+  const calendarRangeEndDateKey = toDateKey(getMonthEnd(calendarMonth));
   const calendarDays = useMemo(
     () => getCalendarDays(calendarMonth),
     [calendarMonth],
   );
 
   const calendarMonthEpisodes = useMemo<UpcomingEpisodeItem[]>(() => {
+    const byEpisode = new Map<string, CalendarEvent | CalendarNewEpisode>();
     const abandonedSeriesIds = new Set(
       tracked
         .filter((series) => getLibrarySeriesStatus(series) === "abandoned")
         .flatMap((series) => [series.id, series.tmdb_id]),
     );
 
-    return calendarEvents
-      .filter((episode) => !abandonedSeriesIds.has(episode.series_id))
-      .filter((episode) => Boolean(getDateKey(episode.air_date)))
+    [...calendarEvents, ...newEpisodes].forEach((episode) => {
+      if (abandonedSeriesIds.has(episode.series_id)) return;
+
+      const dateKey = getDateKey(episode.air_date);
+      if (
+        !dateKey ||
+        dateKey < calendarRangeStartDateKey ||
+        dateKey > calendarRangeEndDateKey
+      ) {
+        return;
+      }
+
+      const key = [
+        episode.episode_id,
+        episode.series_id,
+        episode.season_number,
+        episode.episode_number,
+      ].join("-");
+
+      if (!byEpisode.has(key)) {
+        byEpisode.set(key, episode);
+      }
+    });
+
+    return Array.from(byEpisode.values())
       .sort((episodeA, episodeB) => {
         const dateA = getDateKey(episodeA.air_date) ?? "";
         const dateB = getDateKey(episodeB.air_date) ?? "";
@@ -1851,7 +1878,13 @@ function App() {
         ...episode,
         source: "calendar",
       }));
-  }, [calendarEvents, tracked]);
+  }, [
+    calendarEvents,
+    calendarRangeEndDateKey,
+    calendarRangeStartDateKey,
+    newEpisodes,
+    tracked,
+  ]);
 
   const calendarEpisodeCountByDate = useMemo(() => {
     const countByDate = new Map<string, number>();
