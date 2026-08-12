@@ -231,8 +231,8 @@
 .notification-count {
   display: inline-grid;
   position: absolute;
-  top: -6px;
-  right: -6px;
+  top: -5px;
+  right: -1px;
   min-width: 18px;
   min-height: 18px;
   place-items: center;
