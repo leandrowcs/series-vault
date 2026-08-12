@@ -554,41 +554,6 @@ export const StatsPage = ({
         </StatsPanel>
 
         <StatsPanel
-          collapsed={Boolean(collapsedSections.genres)}
-          icon={Tags}
-          meta="Vistos / total"
-          onToggle={() => toggleSection("genres")}
-          title="Gêneros"
-        >
-          {displayedGenres.length === 0 ? (
-            <p className="empty-state">Gêneros aparecem depois de assistir episódios.</p>
-          ) : (
-            <div className="stats-bar-list">
-              {visibleGenres.map((genre) => (
-                <div key={genre.genre} className="stats-bar-row">
-                  <span>{genre.genre}</span>
-                  <strong>
-                    {genre.watched} de {genre.total}
-                  </strong>
-                  <span className="stats-bar-track">
-                    <span
-                      className="stats-bar-fill"
-                      style={{ width: getBarWidth(genre.percent, 100) }}
-                    />
-                  </span>
-                  <small>{genre.percent}% vistos</small>
-                </div>
-              ))}
-            </div>
-          )}
-          <StatsSeeMoreButton
-            expanded={Boolean(expandedLists.genres)}
-            onClick={() => toggleList("genres")}
-            total={displayedGenres.length}
-          />
-        </StatsPanel>
-
-        <StatsPanel
           collapsed={Boolean(collapsedSections.ranking)}
           icon={Podium}
           meta={`${displayedTopSeries.length} séries`}
@@ -654,6 +619,41 @@ export const StatsPage = ({
             expanded={Boolean(expandedLists.ranking)}
             onClick={() => toggleList("ranking")}
             total={displayedTopSeries.length}
+          />
+        </StatsPanel>
+
+        <StatsPanel
+          collapsed={Boolean(collapsedSections.genres)}
+          icon={Tags}
+          meta="Vistos / total"
+          onToggle={() => toggleSection("genres")}
+          title="Gêneros"
+        >
+          {displayedGenres.length === 0 ? (
+            <p className="empty-state">Gêneros aparecem depois de assistir episódios.</p>
+          ) : (
+            <div className="stats-bar-list">
+              {visibleGenres.map((genre) => (
+                <div key={genre.genre} className="stats-bar-row">
+                  <span>{genre.genre}</span>
+                  <strong>
+                    {genre.watched} de {genre.total}
+                  </strong>
+                  <span className="stats-bar-track">
+                    <span
+                      className="stats-bar-fill"
+                      style={{ width: getBarWidth(genre.percent, 100) }}
+                    />
+                  </span>
+                  <small>{genre.percent}% vistos</small>
+                </div>
+              ))}
+            </div>
+          )}
+          <StatsSeeMoreButton
+            expanded={Boolean(expandedLists.genres)}
+            onClick={() => toggleList("genres")}
+            total={displayedGenres.length}
           />
         </StatsPanel>
 
