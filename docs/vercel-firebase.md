@@ -62,6 +62,9 @@ Enable these Firebase products:
 - Authentication: Google provider
 - Firestore Database
 - Cloud Messaging: Web Push certificate / VAPID key
+- Google Drive API in the same Google Cloud project, used only for the optional `drive.appdata` backup
+
+Access to the app is gated by Google sign-in. To limit who can enter during testing, configure the allowed test users in Google Cloud / OAuth consent screen for the Firebase OAuth client.
 
 The frontend stores:
 

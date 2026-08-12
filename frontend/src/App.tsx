@@ -54,6 +54,7 @@ import {
 import { CalendarPage } from "./pages/CalendarPage";
 import { HomePage } from "./pages/HomePage";
 import { LibraryPage } from "./pages/LibraryPage";
+import { LoginPage } from "./pages/LoginPage";
 import { StatsPage } from "./pages/StatsPage";
 import {
   addMonths,
@@ -2462,6 +2463,19 @@ function App() {
     { id: "stats", label: "Estatísticas", icon: BarChart3 },
     { id: "search", label: "Buscar", icon: Search },
   ];
+
+  if (!auth.user) {
+    return (
+      <div className="app-shell login-shell">
+        <LoginPage
+          authError={auth.error}
+          isAuthLoading={auth.isLoading}
+          isConfigured={auth.isConfigured}
+          onSignIn={auth.signIn}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="app-shell">

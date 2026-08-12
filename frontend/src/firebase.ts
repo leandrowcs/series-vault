@@ -66,4 +66,7 @@ googleProvider.addScope('openid')
 googleProvider.addScope('email')
 googleProvider.addScope('profile')
 googleProvider.addScope('https://www.googleapis.com/auth/drive.appdata')
-googleProvider.setCustomParameters({ prompt: 'select_account' })
+googleProvider.setCustomParameters({
+  include_granted_scopes: 'true',
+  prompt: 'select_account consent',
+})

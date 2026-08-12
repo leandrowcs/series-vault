@@ -5,11 +5,13 @@ const DRIVE_API = 'https://www.googleapis.com/drive/v3'
 const UPLOAD_API = 'https://www.googleapis.com/upload/drive/v3'
 const BACKUP_FILE = 'seriesvault_data.json'
 const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504])
+const DRIVE_UNAVAILABLE_STATUS = new Set([401, 403])
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 export const useGoogleDriveBackup = (accessToken: string | null) => {
   const cachedFileId = useRef<string | null>(null)
+  const isDriveUnavailable = useRef(false)
 
   const fetchWithRetry = useCallback(async (url: string, options: RequestInit = {}, maxAttempts = 4) => {
     let lastResponse: Response | null = null
@@ -39,7 +41,7 @@ export const useGoogleDriveBackup = (accessToken: string | null) => {
   )
 
   const findBackupFileId = useCallback(async () => {
-    if (!accessToken) return null
+    if (!accessToken || isDriveUnavailable.current) return null
     if (cachedFileId.current) return cachedFileId.current
 
     const query = encodeURIComponent(`name='${BACKUP_FILE}'`)
@@ -48,7 +50,12 @@ export const useGoogleDriveBackup = (accessToken: string | null) => {
       { headers: authHeader() },
     )
 
-    if (!response?.ok) return null
+    if (!response?.ok) {
+      if (response && DRIVE_UNAVAILABLE_STATUS.has(response.status)) {
+        isDriveUnavailable.current = true
+      }
+      return null
+    }
     const data = await response.json()
     const fileId = data.files?.[0]?.id ?? null
     cachedFileId.current = fileId
@@ -76,10 +83,13 @@ export const useGoogleDriveBackup = (accessToken: string | null) => {
   const saveBackup = useCallback(
     async (backup: SeriesVaultBackup) => {
       if (!accessToken) return false
+      if (isDriveUnavailable.current) return true
       const body = JSON.stringify(backup)
 
       try {
         const fileId = await findBackupFileId()
+
+        if (isDriveUnavailable.current) return true
 
         if (fileId) {
           const response = await fetchWithRetry(`${UPLOAD_API}/files/${fileId}?uploadType=media`, {
@@ -89,6 +99,10 @@ export const useGoogleDriveBackup = (accessToken: string | null) => {
           })
 
           if (response?.ok) return true
+          if (response && DRIVE_UNAVAILABLE_STATUS.has(response.status)) {
+            isDriveUnavailable.current = true
+            return true
+          }
           if (response?.status === 404 || response?.status === 410) {
             cachedFileId.current = null
           } else {
@@ -111,7 +125,13 @@ export const useGoogleDriveBackup = (accessToken: string | null) => {
           body: form,
         })
 
-        if (!createResponse?.ok) return false
+        if (!createResponse?.ok) {
+          if (createResponse && DRIVE_UNAVAILABLE_STATUS.has(createResponse.status)) {
+            isDriveUnavailable.current = true
+            return true
+          }
+          return false
+        }
         const created = await createResponse.json()
         cachedFileId.current = created.id
         return true
