@@ -1070,7 +1070,7 @@
 
 .continue-watching-scroll {
   display: grid;
-  grid-auto-columns: minmax(140px, 42%);
+  grid-auto-columns: minmax(110px, 42%);
   grid-auto-flow: column;
   gap: 12px;
   margin: 0 -18px;
@@ -1100,7 +1100,7 @@
 
 .trending-card {
   display: grid;
-  gap: 8px;
+  gap: 5px;
   min-width: 0;
   color: var(--text);
   scroll-snap-align: start;
@@ -1226,7 +1226,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 5px;
   min-height: 34px;
   padding: 8px 10px;
   border: 1px solid rgba(20, 160, 133, 0.38);
