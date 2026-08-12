@@ -202,90 +202,97 @@ export const HomePage = ({
           </h1>
           <p>Pronto para mais uma maratona?</p>
         </span>
-        {installPromptAvailable && !isAppInstalled && (
+        {(installPromptAvailable && !isAppInstalled) ||
+        canShowNotificationsButton ? (
           <span className="greeting-actions">
-            <button
-              type="button"
-              className="icon-button install-button"
-              aria-label="Instalar app"
-              onClick={onInstallApp}
-            >
-              <Download aria-hidden="true" />
-            </button>
-          </span>
-        )}
-        {canShowNotificationsButton && (
-            <span className="greeting-actions notification-actions">
+            {installPromptAvailable && !isAppInstalled && (
               <button
                 type="button"
-                ref={notificationButtonRef}
-                className="icon-button install-button notification-button"
-                aria-label={
-                  notificationStatus === "subscribed"
-                    ? "Abrir notificações"
-                    : "Ativar notificações de episódios"
-                }
-                aria-expanded={isNotificationsOpen}
-                disabled={isNotificationButtonDisabled}
-                title={
-                  notificationStatus === "denied"
-                    ? "Permissão de notificação bloqueada no navegador"
-                    : notificationStatus === "subscribed"
-                      ? "Ver notificações de hoje"
-                      : "Ativar avisos de episódios disponíveis hoje"
-                }
-                onClick={toggleNotifications}
+                className="icon-button install-button"
+                aria-label="Instalar app"
+                onClick={onInstallApp}
               >
-                {notificationStatus === "subscribed" ? (
-                  <BellRing aria-hidden="true" />
-                ) : (
-                  <Bell aria-hidden="true" />
-                )}
-                {notificationCount > 0 && (
-                  <strong className="notification-count">{notificationCount}</strong>
-                )}
+                <Download aria-hidden="true" />
               </button>
-              {isNotificationsOpen && (
-                <div
-                  className="home-notification-popover"
-                  ref={notificationPopoverRef}
+            )}
+            {canShowNotificationsButton && (
+              <span className="notification-actions">
+                <button
+                  type="button"
+                  ref={notificationButtonRef}
+                  className="icon-button install-button notification-button"
+                  aria-label={
+                    notificationStatus === "subscribed"
+                      ? "Abrir notificações"
+                      : "Ativar notificações de episódios"
+                  }
+                  aria-expanded={isNotificationsOpen}
+                  disabled={isNotificationButtonDisabled}
+                  title={
+                    notificationStatus === "denied"
+                      ? "Permissão de notificação bloqueada no navegador"
+                      : notificationStatus === "subscribed"
+                        ? "Ver notificações de hoje"
+                        : "Ativar avisos de episódios disponíveis hoje"
+                  }
+                  onClick={toggleNotifications}
                 >
-                  <strong>Hoje</strong>
-                  {todaysEpisodes.length > 0 ? (
-                    <ul>
-                      {todaysEpisodes.map((episode) => (
-                        <li
-                          key={[
-                            episode.episode_id,
-                            episode.series_id,
-                            episode.season_number,
-                            episode.episode_number,
-                          ].join("-")}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setIsNotificationsOpen(false);
-                              onOpenEpisodeModal(episode);
-                            }}
-                          >
-                            <span>{episode.series_title ?? "Série acompanhada"}</span>
-                            <small>
-                              S{episode.season_number ?? "-"}E
-                              {episode.episode_number ?? "-"}
-                              {episode.title ? ` · ${episode.title}` : ""}
-                            </small>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
+                  {notificationStatus === "subscribed" ? (
+                    <BellRing aria-hidden="true" />
                   ) : (
-                    <p>Nenhuma notificação para hoje.</p>
+                    <Bell aria-hidden="true" />
                   )}
-                </div>
-              )}
-            </span>
-          )}
+                  {notificationCount > 0 && (
+                    <strong className="notification-count">
+                      {notificationCount}
+                    </strong>
+                  )}
+                </button>
+                {isNotificationsOpen && (
+                  <div
+                    className="home-notification-popover"
+                    ref={notificationPopoverRef}
+                  >
+                    <strong>Hoje</strong>
+                    {todaysEpisodes.length > 0 ? (
+                      <ul>
+                        {todaysEpisodes.map((episode) => (
+                          <li
+                            key={[
+                              episode.episode_id,
+                              episode.series_id,
+                              episode.season_number,
+                              episode.episode_number,
+                            ].join("-")}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsNotificationsOpen(false);
+                                onOpenEpisodeModal(episode);
+                              }}
+                            >
+                              <span>
+                                {episode.series_title ?? "Série acompanhada"}
+                              </span>
+                              <small>
+                                S{episode.season_number ?? "-"}E
+                                {episode.episode_number ?? "-"}
+                                {episode.title ? ` · ${episode.title}` : ""}
+                              </small>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p>Nenhuma notificação para hoje.</p>
+                    )}
+                  </div>
+                )}
+              </span>
+            )}
+          </span>
+        ) : null}
       </div>
 
       <div
