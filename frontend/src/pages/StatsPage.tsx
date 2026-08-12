@@ -61,7 +61,10 @@ type StatsPanelProps = {
 };
 
 type ActorDisplayStat = ActorStat & {
-  seriesTitles: string[];
+  seriesCredits: {
+    character?: string;
+    seriesTitle: string;
+  }[];
 };
 
 const endedSeriesStatuses = new Set([
@@ -360,17 +363,32 @@ export const StatsPage = ({
           actor: actor.name,
           profile_path: actor.profile_path,
           count: 0,
-          seriesTitles: [],
+          seriesCredits: [],
         };
-        const seriesTitles = Array.from(
-          new Set([...currentActor.seriesTitles, series.title]),
-        ).sort((firstTitle, secondTitle) => firstTitle.localeCompare(secondTitle));
+        const seriesCredits = [
+          ...currentActor.seriesCredits,
+          {
+            character: actor.character,
+            seriesTitle: series.title,
+          },
+        ]
+          .filter(
+            (credit, index, credits) =>
+              credits.findIndex(
+                (item) =>
+                  item.seriesTitle === credit.seriesTitle &&
+                  item.character === credit.character,
+              ) === index,
+          )
+          .sort((firstCredit, secondCredit) =>
+            firstCredit.seriesTitle.localeCompare(secondCredit.seriesTitle),
+          );
 
         actorMap.set(actor.name, {
           ...currentActor,
           profile_path: currentActor.profile_path ?? actor.profile_path,
-          count: seriesTitles.length,
-          seriesTitles,
+          count: new Set(seriesCredits.map((credit) => credit.seriesTitle)).size,
+          seriesCredits,
         });
       });
 
@@ -381,7 +399,7 @@ export const StatsPage = ({
     .sort((firstActor, secondActor) => secondActor.count - firstActor.count);
   const displayedActors = localActorStats.length
     ? localActorStats
-    : actorStats.map((actor) => ({ ...actor, seriesTitles: [] }));
+    : actorStats.map((actor) => ({ ...actor, seriesCredits: [] }));
   const visibleActors = getVisibleItems("actors", displayedActors);
 
   return (
@@ -618,7 +636,7 @@ export const StatsPage = ({
                         className="stats-actor-series-button"
                         aria-expanded={isTooltipOpen}
                         aria-controls={tooltipId}
-                        disabled={actor.seriesTitles.length === 0}
+                        disabled={actor.seriesCredits.length === 0}
                         onClick={() =>
                           setActiveActorTooltip((currentActor) =>
                             currentActor === actor.actor ? null : actor.actor,
@@ -628,10 +646,21 @@ export const StatsPage = ({
                         {actor.count} {actor.count === 1 ? "série" : "séries"}
                       </button>
                     </span>
-                    {isTooltipOpen && actor.seriesTitles.length > 0 && (
+                    {isTooltipOpen && actor.seriesCredits.length > 0 && (
                       <div id={tooltipId} className="stats-actor-series-popover">
                         <strong>Séries</strong>
-                        <span>{actor.seriesTitles.join(", ")}</span>
+                        <ul>
+                          {actor.seriesCredits.map((credit) => (
+                            <li
+                              key={`${credit.seriesTitle}-${credit.character ?? ""}`}
+                            >
+                              <span>{credit.seriesTitle}</span>
+                              <small>
+                                {credit.character?.trim() || "Personagem não informado"}
+                              </small>
+                            </li>
+                          ))}
+                        </ul>
                       </div>
                     )}
                   </div>
