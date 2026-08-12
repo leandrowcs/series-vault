@@ -1,7 +1,16 @@
-import type { RefObject, WheelEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type RefObject,
+  type WheelEvent,
+} from "react";
 import {
   ChevronLeft,
   ChevronRight,
+  Bell,
+  BellRing,
   Download,
   Info,
   Play,
@@ -9,12 +18,13 @@ import {
 } from "lucide-react";
 import { MediaImage } from "../components/MediaImage";
 import type { DashboardMetric } from "../types/ui";
+import type { PushNotificationStatus } from "../hooks/usePushNotifications";
 import type {
   TrackedSeries,
   TrendingSeries,
   UpcomingEpisodeItem,
 } from "../types/series";
-import { formatDate } from "../utils/date";
+import { formatDate, getDateKey, toDateKey } from "../utils/date";
 
 type HomePageProps = {
   continueScrollRef: RefObject<HTMLDivElement>;
@@ -28,6 +38,7 @@ type HomePageProps = {
   isTrendingSeriesLoading: boolean;
   isUpcomingEpisodeLoading: boolean;
   loading: boolean;
+  notificationStatus: PushNotificationStatus;
   suggestedTrendingSeries: TrendingSeries[];
   syncLabel: string;
   syncStatus: "idle" | "syncing" | "synced" | "error";
@@ -41,6 +52,7 @@ type HomePageProps = {
   onGoToCalendar: () => void;
   onGoToLibrary: () => void;
   onInstallApp: () => void;
+  onEnableNotifications: () => void;
   onOpenContinueWatchingSeries: (series: TrackedSeries) => void;
   onOpenEpisodeModal: (episode: UpcomingEpisodeItem) => void;
   onOpenTrendingSeriesDetails: (series: TrendingSeries) => void;
@@ -64,6 +76,7 @@ export const HomePage = ({
   isTrendingSeriesLoading,
   isUpcomingEpisodeLoading,
   loading,
+  notificationStatus,
   suggestedTrendingSeries,
   syncLabel,
   syncStatus,
@@ -77,6 +90,7 @@ export const HomePage = ({
   onGoToCalendar,
   onGoToLibrary,
   onInstallApp,
+  onEnableNotifications,
   onOpenContinueWatchingSeries,
   onOpenEpisodeModal,
   onOpenTrendingSeriesDetails,
@@ -86,8 +100,65 @@ export const HomePage = ({
   onSignOut,
   getGreeting,
   getLatestEpisodeLabel,
-}: HomePageProps) => (
-  <>
+}: HomePageProps) => {
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const notificationButtonRef = useRef<HTMLButtonElement | null>(null);
+  const notificationPopoverRef = useRef<HTMLDivElement | null>(null);
+  const todayDateKey = toDateKey(new Date());
+  const todaysEpisodes = useMemo(
+    () =>
+      upcomingEpisodes.filter(
+        (episode) => getDateKey(episode.air_date) === todayDateKey,
+      ),
+    [todayDateKey, upcomingEpisodes],
+  );
+  const notificationCount = todaysEpisodes.length;
+  const canShowNotificationsButton =
+    notificationStatus !== "unsupported" && notificationStatus !== "unconfigured";
+  const isNotificationButtonDisabled =
+    notificationStatus === "loading" || notificationStatus === "denied";
+
+  useEffect(() => {
+    if (!isNotificationsOpen) return;
+
+    const closeNotificationsOnOutsidePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+
+      if (
+        notificationPopoverRef.current?.contains(target) ||
+        notificationButtonRef.current?.contains(target)
+      ) {
+        return;
+      }
+
+      setIsNotificationsOpen(false);
+    };
+
+    document.addEventListener("pointerdown", closeNotificationsOnOutsidePointerDown);
+
+    return () => {
+      document.removeEventListener(
+        "pointerdown",
+        closeNotificationsOnOutsidePointerDown,
+      );
+    };
+  }, [isNotificationsOpen]);
+
+  const toggleNotifications = () => {
+    setIsNotificationsOpen((isOpen) => !isOpen);
+
+    if (
+      notificationStatus !== "subscribed" &&
+      notificationStatus !== "loading" &&
+      notificationStatus !== "denied"
+    ) {
+      void onEnableNotifications();
+    }
+  };
+
+  return (
+    <>
     <header className="home-header">
       <div className="brand-mark" aria-label="Series Vault">
         <span className="series">Series</span>
@@ -143,6 +214,79 @@ export const HomePage = ({
             </button>
           </span>
         )}
+        {canShowNotificationsButton && (
+            <span className="greeting-actions notification-actions">
+              <button
+                type="button"
+                ref={notificationButtonRef}
+                className="notification-button"
+                aria-label={
+                  notificationStatus === "subscribed"
+                    ? "Abrir notificações"
+                    : "Ativar notificações de episódios"
+                }
+                aria-expanded={isNotificationsOpen}
+                disabled={isNotificationButtonDisabled}
+                title={
+                  notificationStatus === "denied"
+                    ? "Permissão de notificação bloqueada no navegador"
+                    : notificationStatus === "subscribed"
+                      ? "Ver notificações de hoje"
+                      : "Ativar avisos de episódios disponíveis hoje"
+                }
+                onClick={toggleNotifications}
+              >
+                {notificationStatus === "subscribed" ? (
+                  <BellRing aria-hidden="true" />
+                ) : (
+                  <Bell aria-hidden="true" />
+                )}
+                <span>Notificações</span>
+                {notificationCount > 0 && (
+                  <strong className="notification-count">{notificationCount}</strong>
+                )}
+              </button>
+              {isNotificationsOpen && (
+                <div
+                  className="home-notification-popover"
+                  ref={notificationPopoverRef}
+                >
+                  <strong>Hoje</strong>
+                  {todaysEpisodes.length > 0 ? (
+                    <ul>
+                      {todaysEpisodes.map((episode) => (
+                        <li
+                          key={[
+                            episode.episode_id,
+                            episode.series_id,
+                            episode.season_number,
+                            episode.episode_number,
+                          ].join("-")}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsNotificationsOpen(false);
+                              onOpenEpisodeModal(episode);
+                            }}
+                          >
+                            <span>{episode.series_title ?? "Série acompanhada"}</span>
+                            <small>
+                              S{episode.season_number ?? "-"}E
+                              {episode.episode_number ?? "-"}
+                              {episode.title ? ` · ${episode.title}` : ""}
+                            </small>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p>Nenhuma notificação para hoje.</p>
+                  )}
+                </div>
+              )}
+            </span>
+          )}
       </div>
 
       <div
@@ -436,5 +580,6 @@ export const HomePage = ({
         )}
       </section>
     </section>
-  </>
-);
+    </>
+  );
+};

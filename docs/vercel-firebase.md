@@ -32,6 +32,7 @@ VITE_FIREBASE_PROJECT_ID=...
 VITE_FIREBASE_STORAGE_BUCKET=...
 VITE_FIREBASE_MESSAGING_SENDER_ID=...
 VITE_FIREBASE_APP_ID=...
+VITE_FIREBASE_VAPID_KEY=...
 ```
 
 `VITE_API_BASE_URL` is optional when the frontend and Vercel Functions are deployed in the same Vercel project; the app defaults to `/api`. For a separate API host, set `VITE_API_BASE_URL=https://your-api-host.example.com/api`.
@@ -60,12 +61,14 @@ Enable these Firebase products:
 
 - Authentication: Google provider
 - Firestore Database
+- Cloud Messaging: Web Push certificate / VAPID key
 
 The frontend stores:
 
 - `seriesVaultUsers/{uid}`: Google profile metadata
 - `seriesVaultUsers/{uid}/trackedSeries/{tmdbId}`: tracked series snapshots
 - `seriesVaultUsers/{uid}/watchedEpisodes/{episodeKey}`: watched episode records
+- `seriesVaultUsers/{uid}/notificationSubscriptions/{tokenId}`: FCM web push subscriptions
 
 Suggested Firestore rules:
 
@@ -84,6 +87,25 @@ service cloud.firestore {
   }
 }
 ```
+
+## Push notifications
+
+The PWA can register an FCM token after the user signs in and taps the bell on the home page. The app stores the token in Firestore with the browser timezone, then Vercel Cron calls:
+
+```txt
+GET /api/notifications/daily
+```
+
+Set these server-side environment variables in Vercel:
+
+```bash
+FIREBASE_PROJECT_ID=...
+FIREBASE_CLIENT_EMAIL=...
+FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+CRON_SECRET=... # optional, but recommended
+```
+
+If `CRON_SECRET` is set, call the function with `Authorization: Bearer <CRON_SECRET>` for manual tests. The job checks each subscribed user's tracked series and sends a notification when TMDb reports `next_episode_to_air` or `last_episode_to_air` for the current date in that subscription's timezone.
 
 ## Google Drive backup
 

@@ -19,6 +19,11 @@ const assertDb = () => {
 const userDoc = (uid: string) => doc(assertDb(), USERS_COLLECTION, uid)
 const trackedCollection = (uid: string) => collection(userDoc(uid), 'trackedSeries')
 const watchedCollection = (uid: string) => collection(userDoc(uid), 'watchedEpisodes')
+const notificationSubscriptionsCollection = (uid: string) =>
+  collection(userDoc(uid), 'notificationSubscriptions')
+
+const getNotificationSubscriptionId = (token: string) =>
+  btoa(token).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
 
 export const getEpisodeKey = (episode: Pick<EpisodeDetail, 'id' | 'tmdb_episode_id'>) =>
   episode.tmdb_episode_id ? `tmdb-${episode.tmdb_episode_id}` : `local-${episode.id}`
@@ -91,6 +96,38 @@ export const publishCloudProfile = async (uid: string, user: { name: string; ema
       displayName: user.name,
       email: user.email,
       photoUrl: user.picture,
+      updated_at: serverTimestamp(),
+    },
+    { merge: true },
+  )
+}
+
+export const saveCloudNotificationSubscription = async (
+  uid: string,
+  token: string,
+) => {
+  await setDoc(
+    doc(notificationSubscriptionsCollection(uid), getNotificationSubscriptionId(token)),
+    {
+      enabled: true,
+      platform: 'web',
+      token,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      updated_at: serverTimestamp(),
+      user_agent: window.navigator.userAgent,
+    },
+    { merge: true },
+  )
+}
+
+export const disableCloudNotificationSubscription = async (
+  uid: string,
+  token: string,
+) => {
+  await setDoc(
+    doc(notificationSubscriptionsCollection(uid), getNotificationSubscriptionId(token)),
+    {
+      enabled: false,
       updated_at: serverTimestamp(),
     },
     { merge: true },

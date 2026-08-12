@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   CalendarDays,
   ChevronDown,
@@ -65,6 +65,11 @@ type ActorDisplayStat = ActorStat & {
     character?: string;
     seriesTitle: string;
   }[];
+};
+
+type TopSeriesDisplayStat = TopSeriesStat & {
+  pending: number;
+  runtime: number;
 };
 
 const endedSeriesStatuses = new Set([
@@ -211,9 +216,41 @@ export const StatsPage = ({
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const [expandedLists, setExpandedLists] = useState<Record<string, boolean>>({});
   const [activeActorTooltip, setActiveActorTooltip] = useState<string | null>(null);
+  const activeActorPopoverRef = useRef<HTMLDivElement | null>(null);
+  const activeActorButtonRef = useRef<HTMLButtonElement | null>(null);
   const watchedKeys = new Set(watchedRecords.map((record) => record.episode_key));
   const watchedCountBySeries = new Map<number, number>();
   const runtimeBySeries = new Map<number, number>();
+
+  useEffect(() => {
+    if (!activeActorTooltip) return;
+
+    const closeActorTooltipOnOutsidePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+
+      if (
+        activeActorPopoverRef.current?.contains(target) ||
+        activeActorButtonRef.current?.contains(target)
+      ) {
+        return;
+      }
+
+      setActiveActorTooltip(null);
+    };
+
+    document.addEventListener(
+      "pointerdown",
+      closeActorTooltipOnOutsidePointerDown,
+    );
+
+    return () => {
+      document.removeEventListener(
+        "pointerdown",
+        closeActorTooltipOnOutsidePointerDown,
+      );
+    };
+  }, [activeActorTooltip]);
 
   const toggleSection = (sectionId: string) => {
     setCollapsedSections((currentSections) => ({
@@ -342,18 +379,27 @@ export const StatsPage = ({
         }));
   const visibleGenres = getVisibleItems("genres", displayedGenres);
 
-  const localTopSeries = tracked
+  const localTopSeries: TopSeriesDisplayStat[] = tracked
     .map((series) => ({
       series: series.title,
       poster_path: series.poster_path,
       count: watchedCountBySeries.get(series.tmdb_id) ?? 0,
+      pending: Math.max(
+        0,
+        Math.max(
+          (episodeCache[String(series.tmdb_id)] ?? []).filter(
+            (episode) => episode.season_number > 0,
+          ).length,
+          Number(series.number_of_episodes ?? 0),
+        ) - (watchedCountBySeries.get(series.tmdb_id) ?? 0),
+      ),
       runtime: runtimeBySeries.get(series.tmdb_id) ?? 0,
     }))
     .filter((series) => series.count > 0)
     .sort((firstSeries, secondSeries) => secondSeries.count - firstSeries.count);
   const displayedTopSeries = localTopSeries.length
     ? localTopSeries
-    : topSeriesStats.map((series) => ({ ...series, runtime: 0 }));
+    : topSeriesStats.map((series) => ({ ...series, pending: 0, runtime: 0 }));
   const visibleTopSeries = getVisibleItems("ranking", displayedTopSeries);
 
   const localActorStats = Array.from(
@@ -592,6 +638,12 @@ export const StatsPage = ({
                         {series.count} episódios
                         {series.runtime ? ` · ${formatWatchDuration(series.runtime)}` : ""}
                       </small>
+                      <small>
+                        {series.pending}{" "}
+                        {series.pending === 1
+                          ? "episódio pendente"
+                          : "episódios pendentes"}
+                      </small>
                     </span>
                   </div>
                 );
@@ -634,6 +686,7 @@ export const StatsPage = ({
                       <button
                         type="button"
                         className="stats-actor-series-button"
+                        ref={isTooltipOpen ? activeActorButtonRef : undefined}
                         aria-expanded={isTooltipOpen}
                         aria-controls={tooltipId}
                         disabled={actor.seriesCredits.length === 0}
@@ -647,7 +700,11 @@ export const StatsPage = ({
                       </button>
                     </span>
                     {isTooltipOpen && actor.seriesCredits.length > 0 && (
-                      <div id={tooltipId} className="stats-actor-series-popover">
+                      <div
+                        id={tooltipId}
+                        className="stats-actor-series-popover"
+                        ref={activeActorPopoverRef}
+                      >
                         <strong>Séries</strong>
                         <ul>
                           {actor.seriesCredits.map((credit) => (

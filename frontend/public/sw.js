@@ -1,5 +1,53 @@
 // Incrementar versão em cada build para garantir que usuários sempre tenham a versão mais recente
-const CACHE_NAME = 'series-vault-v2';
+const CACHE_NAME = 'series-vault-v3';
+const FIREBASE_SDK_VERSION = '12.17.1';
+
+function getFirebaseConfigFromUrl() {
+  try {
+    const configPayload = new URL(self.location.href).searchParams.get('firebaseConfig');
+    return configPayload ? JSON.parse(atob(configPayload)) : null;
+  } catch (error) {
+    console.warn('Configuração Firebase do Service Worker inválida.', error);
+    return null;
+  }
+}
+
+function initializeFirebaseMessaging() {
+  const firebaseConfig = getFirebaseConfigFromUrl();
+  if (!firebaseConfig) return;
+
+  try {
+    importScripts(
+      `https://www.gstatic.com/firebasejs/${FIREBASE_SDK_VERSION}/firebase-app-compat.js`,
+    );
+    importScripts(
+      `https://www.gstatic.com/firebasejs/${FIREBASE_SDK_VERSION}/firebase-messaging-compat.js`,
+    );
+
+    firebase.initializeApp(firebaseConfig);
+    const messaging = firebase.messaging();
+
+    messaging.onBackgroundMessage((payload) => {
+      const title = payload.notification?.title || 'Series Vault';
+      const body =
+        payload.notification?.body ||
+        payload.data?.body ||
+        'Há episódios disponíveis hoje.';
+
+      self.registration.showNotification(title, {
+        body,
+        data: payload.data || {},
+        icon: '/icon-teal-v2-192x192.png',
+        badge: '/icon-teal-v2-128x128.png',
+        tag: payload.data?.tag || 'series-vault-today',
+      });
+    });
+  } catch (error) {
+    console.warn('Firebase Messaging não foi inicializado no Service Worker.', error);
+  }
+}
+
+initializeFirebaseMessaging();
 
 // Install: cache apenas o app shell HTML
 self.addEventListener('install', (event) => {
@@ -28,6 +76,31 @@ self.addEventListener('activate', (event) => {
     })
   );
   self.clients.claim();
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  const targetUrl = event.notification.data?.url || '/';
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      const matchingClient = clients.find((client) => {
+        try {
+          return new URL(client.url).origin === self.location.origin;
+        } catch {
+          return false;
+        }
+      });
+
+      if (matchingClient) {
+        matchingClient.focus();
+        return matchingClient.navigate(targetUrl);
+      }
+
+      return self.clients.openWindow(targetUrl);
+    }),
+  );
 });
 
 // Fetch: estratégia depende do tipo de requisição

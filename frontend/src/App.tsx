@@ -22,6 +22,7 @@ import {
 import { MediaImage, tmdbImageUrl } from "./components/MediaImage";
 import { useCloudAuth } from "./hooks/useCloudAuth";
 import { useGoogleDriveBackup } from "./hooks/useGoogleDriveBackup";
+import { usePushNotifications } from "./hooks/usePushNotifications";
 import {
   deleteCloudTrackedSeries,
   deleteCloudWatchedEpisodesForSeries,
@@ -102,6 +103,12 @@ const libraryFilterOrder: LibraryFilter[] = [
 ];
 
 const seriesModalTabOrder: SeriesModalTab[] = ["details", "seasons"];
+const activeTabs = new Set<ActiveTab>(["home", "tracked", "calendar", "stats"]);
+
+const getInitialActiveTab = (): ActiveTab => {
+  const tab = new URLSearchParams(window.location.search).get("tab");
+  return tab && activeTabs.has(tab as ActiveTab) ? (tab as ActiveTab) : "home";
+};
 
 const configuredApiBaseUrl = String(
   import.meta.env.VITE_API_BASE_URL ?? "",
@@ -371,6 +378,7 @@ const normalizeTrackedSeries = (
 function App() {
   const auth = useCloudAuth();
   const drive = useGoogleDriveBackup(auth.driveAccessToken);
+  const pushNotifications = usePushNotifications(auth.user?.uid);
   const continueScrollRef = useRef<HTMLDivElement | null>(null);
   const trendingScrollRef = useRef<HTMLDivElement | null>(null);
   const requestedSeriesModalTabRef = useRef<SeriesModalTab>("details");
@@ -379,7 +387,7 @@ function App() {
   const [installPrompt, setInstallPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
   const [isAppInstalled, setIsAppInstalled] = useState(false);
-  const [activeTab, setActiveTab] = useState<ActiveTab>("home");
+  const [activeTab, setActiveTab] = useState<ActiveTab>(getInitialActiveTab);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -2476,6 +2484,9 @@ function App() {
             isTrendingSeriesLoading={isTrendingSeriesLoading}
             isUpcomingEpisodeLoading={isUpcomingEpisodeLoading}
             loading={loading}
+            notificationStatus={
+              auth.isSignedIn ? pushNotifications.status : "unsupported"
+            }
             suggestedTrendingSeries={suggestedTrendingSeries}
             syncLabel={syncLabel}
             syncStatus={syncStatus}
@@ -2485,6 +2496,7 @@ function App() {
             onContinueWatchingWheel={handleContinueWatchingWheel}
             onGoToCalendar={() => setActiveTab("calendar")}
             onGoToLibrary={() => setActiveTab("tracked")}
+            onEnableNotifications={pushNotifications.registerToken}
             onInstallApp={installApp}
             onOpenContinueWatchingSeries={openContinueWatchingSeries}
             onOpenEpisodeModal={openEpisodeModal}
