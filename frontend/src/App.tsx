@@ -16,6 +16,7 @@ import {
   BookmarkPlus,
   BookmarkX,
   ChevronDown,
+  Info,
   Search,
   Star,
   Square,
@@ -403,6 +404,9 @@ function App() {
   const drive = useGoogleDriveBackup(auth.driveAccessToken);
   const continueScrollRef = useRef<HTMLDivElement | null>(null);
   const trendingScrollRef = useRef<HTMLDivElement | null>(null);
+  const requestedSeriesModalTabRef = useRef<SeriesModalTab>("details");
+  const requestedExpandedSeasonRef = useRef<number | null>(null);
+  const requestedEpisodeRef = useRef<EpisodeDetail | null>(null);
   const [installPrompt, setInstallPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
   const [isAppInstalled, setIsAppInstalled] = useState(false);
@@ -472,6 +476,7 @@ function App() {
     useState<TabTransitionDirection>("slide-left");
   const [libraryViewMode, setLibraryViewMode] =
     useState<LibraryViewMode>("covers");
+  const [seasonToScroll, setSeasonToScroll] = useState<number | null>(null);
 
   useEffect(() => {
     const standaloneQuery = window.matchMedia("(display-mode: standalone)");
@@ -615,16 +620,41 @@ function App() {
 
   useEffect(() => {
     if (selectedSeries) {
+      const selectedTrackedSeries = tracked.find(
+        (series) => series.tmdb_id === selectedSeries.tmdb_id,
+      );
+      const requestedExpandedSeason = requestedExpandedSeasonRef.current;
+      const requestedEpisode = requestedEpisodeRef.current;
+
       setEpisodes([]);
-      setExpandedSeasons(new Set());
-      setSelectedEpisode(null);
-      setSeriesModalTab("details");
-      fetchSeriesEpisodes(selectedSeries.id);
+      setExpandedSeasons(
+        requestedExpandedSeason === null
+          ? new Set()
+          : new Set([requestedExpandedSeason]),
+      );
+      setSelectedEpisode(requestedEpisode);
+      setSeriesModalTab(requestedSeriesModalTabRef.current);
+
+      requestedSeriesModalTabRef.current = "details";
+      requestedExpandedSeasonRef.current = null;
+      requestedEpisodeRef.current = null;
+
+      if (requestedExpandedSeason !== null) {
+        setSeasonToScroll(requestedExpandedSeason);
+      }
+
+      if (selectedTrackedSeries) {
+        fetchSeriesEpisodes(selectedTrackedSeries.id);
+      }
     }
-  }, [selectedSeries?.id]);
+  }, [selectedSeries?.tmdb_id, tracked]);
 
   useEffect(() => {
     if (!selectedSeries) return;
+
+    const selectedTrackedSeries = tracked.find(
+      (series) => series.tmdb_id === selectedSeries.tmdb_id,
+    );
 
     if (selectedSeries.watch_providers?.length) {
       setWatchProvidersBySeries((current) => ({
@@ -634,7 +664,13 @@ function App() {
       return;
     }
 
-    if (!hasApi || watchProvidersBySeries[selectedSeries.id]) return;
+    if (
+      !hasApi ||
+      !selectedTrackedSeries ||
+      watchProvidersBySeries[selectedTrackedSeries.id]
+    ) {
+      return;
+    }
 
     let cancelled = false;
 
@@ -645,7 +681,7 @@ function App() {
           {
             params: {
               route: "watch-providers",
-              seriesId: selectedSeries.id,
+              seriesId: selectedTrackedSeries.id,
             },
           },
         );
@@ -657,14 +693,14 @@ function App() {
         if (!cancelled) {
           setWatchProvidersBySeries((current) => ({
             ...current,
-            [selectedSeries.id]: providers,
+            [selectedTrackedSeries.id]: providers,
           }));
         }
       } catch {
         if (!cancelled) {
           setWatchProvidersBySeries((current) => ({
             ...current,
-            [selectedSeries.id]: [],
+            [selectedTrackedSeries.id]: [],
           }));
         }
       }
@@ -675,7 +711,7 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, [selectedSeries, watchProvidersBySeries]);
+  }, [selectedSeries, tracked, watchProvidersBySeries]);
 
   useEffect(() => {
     setEpisodes((current) => applyWatchedRecords(current, cloudWatchedRecords));
@@ -737,7 +773,9 @@ function App() {
 
   useEffect(() => {
     if (seasonGroups.length === 0) {
-      setExpandedSeasons(new Set());
+      if (seasonToScroll === null) {
+        setExpandedSeasons(new Set());
+      }
       return;
     }
 
@@ -749,9 +787,17 @@ function App() {
         (seasonNumber) => availableSeasons.has(seasonNumber),
       );
 
+      if (
+        seasonToScroll !== null &&
+        availableSeasons.has(seasonToScroll) &&
+        !stillAvailable.includes(seasonToScroll)
+      ) {
+        stillAvailable.push(seasonToScroll);
+      }
+
       return new Set(stillAvailable);
     });
-  }, [seasonGroups]);
+  }, [seasonGroups, seasonToScroll]);
 
   useEffect(() => {
     if (!selectedSeries) return;
@@ -765,6 +811,27 @@ function App() {
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [selectedSeries]);
+
+  useEffect(() => {
+    if (
+      seasonToScroll === null ||
+      seriesModalTab !== "seasons" ||
+      seasonGroups.length === 0
+    ) {
+      return;
+    }
+
+    const frameId = window.requestAnimationFrame(() => {
+      const seasonElement = document.querySelector<HTMLElement>(
+        `[data-season-number="${seasonToScroll}"]`,
+      );
+
+      seasonElement?.scrollIntoView({ block: "start", behavior: "smooth" });
+      setSeasonToScroll(null);
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, [seasonGroups, seasonToScroll, seriesModalTab]);
 
   const fetchTracked = async () => {
     if (!hasApi) return;
@@ -837,14 +904,14 @@ function App() {
       setSelectedSeries(existingSeries);
       setActiveTab("tracked");
       setIsSearchOpen(false);
-      return;
+      return existingSeries;
     }
 
     if (!hasApi) {
       setError(
         "API TMDb não configurada neste ambiente. Configure VITE_API_BASE_URL na Vercel.",
       );
-      return;
+      return undefined;
     }
 
     try {
@@ -858,9 +925,11 @@ function App() {
 
       setLoading(false);
       setError("");
+      return addedSeries;
     } catch (err) {
       setLoading(false);
       setError(getApiErrorMessage(err, "Falha ao adicionar série"));
+      return undefined;
     }
   };
 
@@ -1049,6 +1118,20 @@ function App() {
         cloudWatchedRecords,
       );
       setEpisodes(nextEpisodes);
+      setSelectedEpisode((currentEpisode) => {
+        if (!currentEpisode) return currentEpisode;
+
+        return (
+          nextEpisodes.find(
+            (episode) =>
+              episode.id === currentEpisode.id ||
+              (episode.season_number === currentEpisode.season_number &&
+                episode.episode_number === currentEpisode.episode_number &&
+                getDateKey(episode.air_date) ===
+                  getDateKey(currentEpisode.air_date)),
+          ) ?? currentEpisode
+        );
+      });
 
       if (series) {
         setEpisodeCache((current) => ({
@@ -1525,6 +1608,10 @@ function App() {
 
     return trendingSeries
       .filter((series) => !trackedTmdbIds.has(series.tmdb_id))
+      .sort(
+        (seriesA, seriesB) =>
+          Number(seriesB.vote_average ?? 0) - Number(seriesA.vote_average ?? 0),
+      )
       .slice(0, 10);
   }, [tracked, trendingSeries]);
 
@@ -2077,6 +2164,142 @@ function App() {
     });
   };
 
+  const openSeriesModal = (
+    series: TrackedSeries,
+    options: {
+      tab?: SeriesModalTab;
+      expandedSeason?: number;
+      episode?: EpisodeDetail;
+      scrollToSeason?: boolean;
+    } = {},
+  ) => {
+    requestedSeriesModalTabRef.current = options.tab ?? "details";
+    requestedExpandedSeasonRef.current = options.expandedSeason ?? null;
+    requestedEpisodeRef.current = options.episode ?? null;
+
+    if (options.scrollToSeason && options.expandedSeason !== undefined) {
+      setSeasonToScroll(options.expandedSeason);
+    }
+
+    if (selectedSeries?.tmdb_id === series.tmdb_id) {
+      setSeriesModalTab(options.tab ?? "details");
+      setExpandedSeasons(
+        options.expandedSeason === undefined
+          ? new Set()
+          : new Set([options.expandedSeason]),
+      );
+      setSelectedEpisode(options.episode ?? null);
+      return;
+    }
+
+    setSelectedSeries(series);
+  };
+
+  const openTrendingSeriesDetails = (series: TrendingSeries) => {
+    const trackedSeries = tracked.find((item) => item.tmdb_id === series.tmdb_id);
+
+    openSeriesModal(
+      trackedSeries ??
+        normalizeTrackedSeries({
+          ...series,
+          id: series.tmdb_id,
+          tmdb_id: series.tmdb_id,
+          title: series.name,
+          completed_percent: 0,
+        }),
+    );
+  };
+
+  const getInProgressSeasonNumber = (series: TrackedSeries) => {
+    const seriesEpisodes = episodeCache[String(series.tmdb_id)] ?? [];
+    const sortedEpisodes = [...seriesEpisodes]
+      .filter((episode) => episode.season_number > 0)
+      .sort(
+        (episodeA, episodeB) =>
+          episodeA.season_number - episodeB.season_number ||
+          episodeA.episode_number - episodeB.episode_number,
+      );
+
+    const nextEpisode = sortedEpisodes.find(
+      (episode) => !watchedEpisodeKeys.has(getEpisodeKey(episode)),
+    );
+    if (nextEpisode) return nextEpisode.season_number;
+
+    const latestWatchedEpisode = [...watchedRecords]
+      .filter((record) => record.series_tmdb_id === series.tmdb_id)
+      .sort(
+        (recordA, recordB) =>
+          new Date(recordB.watched_at).getTime() -
+          new Date(recordA.watched_at).getTime(),
+      )[0];
+
+    return latestWatchedEpisode?.season_number ?? 1;
+  };
+
+  const openContinueWatchingSeries = (series: TrackedSeries) => {
+    const seasonNumber = getInProgressSeasonNumber(series);
+
+    openSeriesModal(series, {
+      tab: "seasons",
+      expandedSeason: seasonNumber,
+      scrollToSeason: true,
+    });
+  };
+
+  const findSeriesForEpisode = (episode: UpcomingEpisodeItem) => {
+    if (episode.series) return episode.series;
+
+    return tracked.find(
+      (series) =>
+        series.id === episode.series_id ||
+        series.tmdb_id === episode.series_id ||
+        series.title === episode.series_title,
+    );
+  };
+
+  const getEpisodeDetailFromItem = (
+    episode: UpcomingEpisodeItem,
+    series: TrackedSeries,
+  ): EpisodeDetail => {
+    const cachedEpisode = episodeCache[String(series.tmdb_id)]?.find(
+      (item) =>
+        item.id === episode.episode_id ||
+        (item.season_number === episode.season_number &&
+          item.episode_number === episode.episode_number &&
+          getDateKey(item.air_date) === getDateKey(episode.air_date)),
+    );
+
+    if (cachedEpisode) return cachedEpisode;
+
+    return {
+      id: episode.episode_id,
+      season_number: episode.season_number ?? 0,
+      episode_number: episode.episode_number ?? 0,
+      title: episode.title,
+      air_date: episode.air_date,
+      still_path: episode.still_path,
+      watched: Boolean(episode.watched),
+      progress_percent: episode.watched ? 100 : 0,
+    };
+  };
+
+  const openEpisodeModal = (episode: UpcomingEpisodeItem) => {
+    const series = findSeriesForEpisode(episode);
+
+    if (!series) {
+      setError("Não foi possível encontrar a série deste episódio.");
+      return;
+    }
+
+    const episodeDetail = getEpisodeDetailFromItem(episode, series);
+
+    openSeriesModal(series, {
+      tab: "seasons",
+      expandedSeason: episodeDetail.season_number,
+      episode: episodeDetail,
+    });
+  };
+
   const selectSeriesModalTab = (tab: SeriesModalTab) => {
     if (tab === seriesModalTab) return;
 
@@ -2163,6 +2386,11 @@ function App() {
   const selectedSeriesStarCount = getTmdbStarCount(
     selectedSeries?.vote_average,
   );
+
+  const selectedTrackedSeries = selectedSeries
+    ? tracked.find((series) => series.tmdb_id === selectedSeries.tmdb_id)
+    : undefined;
+  const isSelectedSeriesTracked = Boolean(selectedTrackedSeries);
 
   const selectedWatchProviders = selectedSeries
     ? (watchProvidersBySeries[selectedSeries.id] ??
@@ -2470,38 +2698,44 @@ function App() {
                 >
                   {suggestedTrendingSeries.map((series) => (
                     <article key={series.tmdb_id} className="trending-card">
-                      <span className="continue-poster-frame">
-                        <MediaImage
-                          path={series.poster_path}
-                          alt={`Capa de ${series.name}`}
-                          className="continue-poster"
-                          fallback="Sem capa"
-                          size="w342"
-                        />
-                        <span className="continue-card-shade" />
-                        <span className="trending-rating">
-                          <Star aria-hidden="true" />
-                          {series.vote_average
-                            ? series.vote_average.toFixed(1)
-                            : "-"}
+                      <button
+                        type="button"
+                        className="continue-card trending-detail-button"
+                        onClick={() => openTrendingSeriesDetails(series)}
+                      >
+                        <span className="continue-poster-frame">
+                          <MediaImage
+                            path={series.poster_path}
+                            alt={`Capa de ${series.name}`}
+                            className="continue-poster"
+                            fallback="Sem capa"
+                            size="w342"
+                          />
+                          <span className="continue-card-shade" />
+                          <span className="trending-rating">
+                            <Star aria-hidden="true" />
+                            {series.vote_average
+                              ? series.vote_average.toFixed(1)
+                              : "-"}
+                          </span>
                         </span>
-                      </span>
-                      <span className="continue-copy">
-                        <strong>{series.name}</strong>
-                        <small>
-                          {series.first_air_date
-                            ? new Date(series.first_air_date).getFullYear()
-                            : "Sem data"}
-                        </small>
-                      </span>
+                        <span className="continue-copy">
+                          <strong>{series.name}</strong>
+                          <small>
+                            {series.first_air_date
+                              ? new Date(series.first_air_date).getFullYear()
+                              : "Sem data"}
+                          </small>
+                        </span>
+                      </button>
                       <button
                         type="button"
                         className="trending-add-button"
                         disabled={loading}
-                        onClick={() => addSeries(series.tmdb_id)}
+                        onClick={() => openTrendingSeriesDetails(series)}
                       >
-                        <BookmarkPlus aria-hidden="true" />
-                        Adicionar
+                        <Info aria-hidden="true" />
+                        Detalhes
                       </button>
                     </article>
                   ))}
@@ -2574,10 +2808,7 @@ function App() {
                       key={series.id}
                       type="button"
                       className="continue-card"
-                      onClick={() => {
-                        setSelectedSeries(series);
-                        setActiveTab("tracked");
-                      }}
+                      onClick={() => openContinueWatchingSeries(series)}
                     >
                       <span className="continue-poster-frame">
                         <MediaImage
@@ -2646,15 +2877,7 @@ function App() {
                       ].join("-")}
                       type="button"
                       className="upcoming-card"
-                      onClick={() => {
-                        if (episode.source === "watchlist" && episode.series) {
-                          setSelectedSeries(episode.series);
-                          setActiveTab("tracked");
-                          return;
-                        }
-
-                        setActiveTab("calendar");
-                      }}
+                      onClick={() => openEpisodeModal(episode)}
                     >
                       <MediaImage
                         path={episode.still_path ?? episode.series_poster_path}
@@ -2831,6 +3054,7 @@ function App() {
             onClearSelectedDate={() => setSelectedCalendarDate(null)}
             onOpenNextMonth={openNextCalendarMonth}
             onOpenPreviousMonth={openPreviousCalendarMonth}
+            onSelectEpisode={openEpisodeModal}
             onSelectCalendarDay={selectCalendarDay}
             onToggleMonthPanel={() =>
               setIsCalendarMonthPanelExpanded((isExpanded) => !isExpanded)
@@ -3004,7 +3228,24 @@ function App() {
                 >
                   <X aria-hidden="true" />
                 </button>
-                {renderSeriesActionSelect(selectedSeries, "modal")}
+                {isSelectedSeriesTracked && selectedTrackedSeries ? (
+                  renderSeriesActionSelect(selectedTrackedSeries, "modal")
+                ) : (
+                  <button
+                    type="button"
+                    className="trending-add-button"
+                    disabled={loading}
+                    onClick={async () => {
+                      const addedSeries = await addSeries(selectedSeries.tmdb_id);
+                      if (addedSeries) {
+                        setSelectedSeries(addedSeries);
+                      }
+                    }}
+                  >
+                    <BookmarkPlus aria-hidden="true" />
+                    Adicionar
+                  </button>
+                )}
               </div>
             </div>
 
@@ -3179,7 +3420,11 @@ function App() {
                     const seasonTitle = `Temporada ${group.seasonNumber}`;
 
                     return (
-                      <section key={group.seasonNumber} className="season-group">
+                      <section
+                        key={group.seasonNumber}
+                        className="season-group"
+                        data-season-number={group.seasonNumber}
+                      >
                         <div
                           className={
                             group.posterPath

@@ -25,6 +25,7 @@ type CalendarPageProps = {
   onClearSelectedDate: () => void;
   onOpenNextMonth: () => void;
   onOpenPreviousMonth: () => void;
+  onSelectEpisode: (episode: UpcomingEpisodeItem) => void;
   onSelectCalendarDay: (day: CalendarDayCell) => void;
   onToggleMonthPanel: () => void;
 };
@@ -47,6 +48,7 @@ export const CalendarPage = ({
   onClearSelectedDate,
   onOpenNextMonth,
   onOpenPreviousMonth,
+  onSelectEpisode,
   onSelectCalendarDay,
   onToggleMonthPanel,
 }: CalendarPageProps) => {
@@ -195,14 +197,16 @@ export const CalendarPage = ({
           ) : (
             <div className="calendar-episode-list">
               {visibleCalendarEpisodes.map((episode) => (
-                <article
+                <button
                   key={[
                     episode.episode_id,
                     episode.series_id,
                     episode.season_number,
                     episode.episode_number,
                   ].join("-")}
+                  type="button"
                   className="calendar-episode-card"
+                  onClick={() => onSelectEpisode(episode)}
                 >
                   <MediaImage
                     path={episode.still_path ?? episode.series_poster_path}
@@ -220,7 +224,7 @@ export const CalendarPage = ({
                       {episode.title ? ` · ${episode.title}` : ""}
                     </p>
                   </div>
-                </article>
+                </button>
               ))}
             </div>
           )}
