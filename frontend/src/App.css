@@ -57,7 +57,7 @@
   justify-content: space-between;
   gap: 16px;
   min-height: 58px;
-  padding: 10px 0 8px;
+  padding: 10px 0 0 12px;
 }
 
 .brand-mark {
@@ -69,7 +69,7 @@
   letter-spacing: 4px;
   line-height: 1.05;
   text-transform: uppercase;
-  filter: drop-shadow(0 0 12px rgba(20, 160, 133, 0.34));
+  filter: drop-shadow(0 0 8px rgba(20, 160, 133, 0.34));
 }
 
 .brand-mark strong {
@@ -1199,6 +1199,16 @@
   gap: 10px;
 }
 
+.search-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 18;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  cursor: default;
+}
+
 .search-drawer {
   position: fixed;
   left: 50%;
@@ -1815,7 +1825,7 @@
 }
 
 .calendar-month-panel {
-  max-height: min(25dvh, 195px);
+  max-height: min(25dvh, 200px);
   min-height: 0;
   overflow: hidden;
   padding: 2px 0;
@@ -1925,7 +1935,7 @@
 .calendar-day-marker {
   position: absolute;
   left: 50%;
-  bottom: 1px;
+  bottom: -2px;
   display: grid;
   place-items: center;
   width: 5px;

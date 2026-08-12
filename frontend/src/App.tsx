@@ -3674,6 +3674,15 @@ function App() {
           );
         })()}
 
+      {isSearchOpen && (
+        <button
+          type="button"
+          className="search-drawer-backdrop"
+          aria-label="Fechar busca"
+          onClick={() => setIsSearchOpen(false)}
+        />
+      )}
+
       <section
         className={isSearchOpen ? "search-drawer open" : "search-drawer"}
         aria-hidden={isSearchOpen ? "false" : "true"}
