@@ -1,5 +1,6 @@
 import {
   CalendarDays,
+  CalendarOff,
   ChevronLeft,
   ChevronRight,
   X,
@@ -49,6 +50,10 @@ export const CalendarPage = ({
   onSelectCalendarDay,
   onToggleMonthPanel,
 }: CalendarPageProps) => {
+  const HeaderCalendarIcon = isCalendarMonthPanelExpanded
+    ? CalendarOff
+    : CalendarDays;
+
   return (
     <section className="calendar-view page-view">
       <div className="page-topbar page-sticky">
@@ -72,7 +77,7 @@ export const CalendarPage = ({
               aria-expanded={isCalendarMonthPanelExpanded}
               onClick={onToggleMonthPanel}
             >
-              <CalendarDays aria-hidden="true" />
+              <HeaderCalendarIcon aria-hidden="true" />
             </button>
           </div>
         </div>
