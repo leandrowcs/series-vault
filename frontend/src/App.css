@@ -215,20 +215,7 @@
 }
 
 .notification-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  min-height: 38px;
-  max-width: min(180px, 46vw);
-  padding: 0 10px;
-  border: 1px solid rgba(20, 160, 133, 0.38);
-  border-radius: 8px;
-  background: rgba(15, 118, 110, 0.18);
-  color: var(--purple-light);
-  cursor: pointer;
-  font: inherit;
-  font-size: 0.78rem;
-  font-weight: 800;
+  position: relative;
 }
 
 .notification-button:disabled {
@@ -241,22 +228,19 @@
   min-width: 18px;
 }
 
-.notification-button span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .notification-count {
   display: inline-grid;
-  min-width: 20px;
-  min-height: 20px;
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 18px;
+  min-height: 18px;
   place-items: center;
-  padding: 0 5px;
+  padding: 0 4px;
   border-radius: 999px;
   background: var(--green);
   color: #04110f;
-  font-size: 0.68rem;
+  font-size: 0.64rem;
 }
 
 .home-notification-popover {

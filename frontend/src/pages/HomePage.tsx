@@ -219,7 +219,7 @@ export const HomePage = ({
               <button
                 type="button"
                 ref={notificationButtonRef}
-                className="notification-button"
+                className="icon-button install-button notification-button"
                 aria-label={
                   notificationStatus === "subscribed"
                     ? "Abrir notificações"
@@ -241,7 +241,6 @@ export const HomePage = ({
                 ) : (
                   <Bell aria-hidden="true" />
                 )}
-                <span>Notificações</span>
                 {notificationCount > 0 && (
                   <strong className="notification-count">{notificationCount}</strong>
                 )}
