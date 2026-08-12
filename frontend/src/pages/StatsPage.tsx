@@ -1,13 +1,13 @@
 import { useState, type ReactNode } from "react";
 import {
-  BarChart3,
-  BookmarkCheck,
   CalendarDays,
   ChevronDown,
   Clock3,
   Crown,
+  Gauge,
   Library,
   Medal,
+  Podium,
   Star,
   Tags,
   Tv,
@@ -477,7 +477,7 @@ export const StatsPage = ({
 
         <StatsPanel
           collapsed={Boolean(collapsedSections.rhythm)}
-          icon={BarChart3}
+          icon={Gauge}
           meta={expandedLists.rhythm ? "Últimos 12 meses" : "Últimos 6 meses"}
           onToggle={() => toggleSection("rhythm")}
           title="Ritmo"
@@ -544,7 +544,7 @@ export const StatsPage = ({
 
         <StatsPanel
           collapsed={Boolean(collapsedSections.ranking)}
-          icon={BookmarkCheck}
+          icon={Podium}
           meta={`${displayedTopSeries.length} séries`}
           onToggle={() => toggleSection("ranking")}
           title="Ranking"
