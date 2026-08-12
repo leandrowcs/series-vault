@@ -3,20 +3,14 @@ import axios from "axios";
 import {
   BarChart3,
   CalendarDays,
-  ChevronLeft,
-  ChevronRight,
-  Clock3,
-  Download,
-  Grid2X2,
-  Home,
-  Library,
-  List,
-  Play,
   BookmarkCheck,
   BookmarkPlus,
   BookmarkX,
   ChevronDown,
-  Info,
+  Clock3,
+  Home,
+  Library,
+  Play,
   Search,
   Star,
   Square,
@@ -57,6 +51,8 @@ import {
   YearStat,
 } from "./types/series";
 import { CalendarPage } from "./pages/CalendarPage";
+import { HomePage } from "./pages/HomePage";
+import { LibraryPage } from "./pages/LibraryPage";
 import { StatsPage } from "./pages/StatsPage";
 import {
   addMonths,
@@ -71,6 +67,17 @@ import {
   toDateKey,
   type CalendarDayCell,
 } from "./utils/date";
+import type {
+  ActiveTab,
+  DashboardMetric,
+  LibraryFilter,
+  LibrarySeriesGroup,
+  LibrarySeriesStatus,
+  LibraryViewMode,
+  SeriesActionValue,
+  SeriesModalTab,
+  TabTransitionDirection,
+} from "./types/ui";
 import "./App.css";
 
 type SeasonEpisodeGroup = {
@@ -80,45 +87,6 @@ type SeasonEpisodeGroup = {
   name?: string;
   posterPath?: string;
 };
-
-type ActiveTab = "home" | "tracked" | "calendar" | "stats";
-
-type LibraryFilter = "watching" | "waiting" | "finished" | "abandoned" | "all";
-
-type LibraryViewMode = "covers" | "list";
-
-type TabTransitionDirection = "slide-left" | "slide-right";
-
-type SeriesModalTab = "details" | "seasons";
-
-type LibrarySeriesStatus =
-  | "watching"
-  | "waiting"
-  | "finished"
-  | "abandoned"
-  | "notStarted";
-
-type DashboardMetric = {
-  label: string;
-  value: string;
-  icon: LucideIcon;
-  layout: "compact" | "wide";
-  tone: "cyan" | "purple" | "amber" | "green";
-};
-
-type LibrarySeriesGroup = {
-  id: string;
-  label: string;
-  series: TrackedSeries[];
-  collapsible: boolean;
-};
-
-type SeriesActionValue =
-  | "added"
-  | "abandoned"
-  | "abandon"
-  | "reactivate"
-  | "remove";
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -528,16 +496,17 @@ function App() {
       return;
     }
 
+    const cloudUser = auth.user;
     let cancelled = false;
 
     const loadCloudData = async () => {
       try {
         setSyncStatus("syncing");
-        await publishCloudProfile(auth.user.uid, auth.user);
+        await publishCloudProfile(cloudUser.uid, cloudUser);
 
         const [cloudTracked, cloudWatched, driveBackup] = await Promise.all([
-          loadCloudTrackedSeries(auth.user.uid),
-          loadCloudWatchedEpisodes(auth.user.uid),
+          loadCloudTrackedSeries(cloudUser.uid),
+          loadCloudWatchedEpisodes(cloudUser.uid),
           drive.loadBackup(),
         ]);
 
@@ -1727,7 +1696,7 @@ function App() {
 
   const nextWatchlistEpisodes = useMemo<UpcomingEpisodeItem[]>(() => {
     return continueWatching
-      .map((series) => {
+      .map((series): UpcomingEpisodeItem | undefined => {
         const seriesEpisodes = episodeCache[String(series.tmdb_id)];
         if (!seriesEpisodes?.length) return undefined;
 
@@ -1994,16 +1963,6 @@ function App() {
       tone: "green",
     },
   ];
-
-  const libraryStatusIcons: Record<
-    Exclude<LibrarySeriesStatus, "notStarted">,
-    LucideIcon
-  > = {
-    watching: Star,
-    waiting: BookmarkPlus,
-    finished: BookmarkCheck,
-    abandoned: BookmarkX,
-  };
 
   const libraryTabs: { id: LibraryFilter; label: string; icon?: LucideIcon }[] = [
     { id: "watching", label: "Assistindo", icon: Star },
@@ -2432,48 +2391,6 @@ function App() {
     );
   };
 
-  const renderLibraryCard = (series: TrackedSeries) => {
-    const seriesStatus = getLibrarySeriesStatus(series);
-    const StatusIcon =
-      seriesStatus === "notStarted" ? undefined : libraryStatusIcons[seriesStatus];
-
-    return (
-      <button
-        key={series.id}
-        type="button"
-        className={`library-card ${selectedSeries?.id === series.id ? "selected" : ""}`}
-        onClick={() => setSelectedSeries(series)}
-      >
-        {libraryFilter === "all" && StatusIcon && (
-          <span
-            className={`library-status-badge library-status-badge-${seriesStatus}`}
-            aria-label={getLibrarySeriesMeta(series)}
-            title={getLibrarySeriesMeta(series)}
-          >
-            <StatusIcon aria-hidden="true" />
-          </span>
-        )}
-        <MediaImage
-          path={series.poster_path}
-          alt={`Capa de ${series.title}`}
-          className="library-poster"
-          fallback="Sem capa"
-          size="w342"
-        />
-        <span className="library-card-copy">
-          <strong>{series.title}</strong>
-          <small>{getLibrarySeriesMeta(series)}</small>
-          <span className="progress-track">
-            <span
-              className="progress-fill"
-              style={{ width: `${series.completed_percent}%` }}
-            />
-          </span>
-        </span>
-      </button>
-    );
-  };
-
   const hasLibraryGroups = groupedLibrarySeries.some(
     (group) => group.series.length > 0,
   );
@@ -2542,504 +2459,63 @@ function App() {
     <div className="app-shell">
       <main className="app-main">
         {activeTab === "home" && (
-          <header className="home-header">
-            <div className="brand-mark" aria-label="Series Vault">
-              <span className="series">Series</span>
-              <strong className="vault">Vault</strong>
-            </div>
-            {activeTab === "home" && auth.isConfigured && (
-              <div className="cloud-auth">
-                {auth.user?.picture && (
-                  <img
-                    className="cloud-avatar"
-                    src={auth.user.picture}
-                    alt={auth.user.name || "Usuário Google"}
-                  />
-                )}
-                <span className={`cloud-status cloud-status-${syncStatus}`}>
-                  {syncLabel}
-                </span>
-                {auth.isSignedIn ? (
-                  <button
-                    type="button"
-                    className="cloud-button"
-                    onClick={auth.signOut}
-                  >
-                    Sair
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="cloud-button"
-                    onClick={auth.signIn}
-                    disabled={auth.isLoading}
-                  >
-                    Entrar
-                  </button>
-                )}
-              </div>
-            )}
-          </header>
-        )}
-
-        {activeTab === "home" && (
-          <section className="home-view">
-            <div className="greeting-block">
-              <span className="greeting-copy">
-                <h1>
-                  {getGreeting()}, {auth.user?.name?.split(" ")[0] ?? "Leandro"}!
-                </h1>
-                <p>Pronto para mais uma maratona?</p>
-              </span>
-              {installPrompt && !isAppInstalled && (
-                <span className="greeting-actions">
-                  <button
-                    type="button"
-                    className="icon-button install-button"
-                    aria-label="Instalar app"
-                    onClick={installApp}
-                  >
-                    <Download aria-hidden="true" />
-                  </button>
-                </span>
-              )}
-            </div>
-
-            <div
-              className="metric-grid"
-              aria-busy={isDashboardLoading ? "true" : "false"}
-            >
-              {isDashboardLoading
-                ? (["compact", "compact", "wide", "wide"] as const).map(
-                    (layout, index) => (
-                      <div
-                        key={`metric-skeleton-${index}`}
-                        className={`metric-card metric-card-${layout} metric-card-skeleton`}
-                        aria-hidden="true"
-                      >
-                        <span className="metric-icon skeleton" />
-                        <span className="skeleton skeleton-text skeleton-value" />
-                        <span className="skeleton skeleton-text skeleton-label" />
-                      </div>
-                    ),
-                  )
-                : dashboardMetrics.map((metric) => {
-                    const MetricIcon = metric.icon;
-
-                    return (
-                      <div
-                        key={metric.label}
-                        className={`metric-card metric-card-${metric.layout}`}
-                      >
-                        <span
-                          className={`metric-icon metric-icon-${metric.tone}`}
-                        >
-                          <MetricIcon aria-hidden="true" />
-                        </span>
-                        <strong>{metric.value}</strong>
-                        <span>{metric.label}</span>
-                      </div>
-                    );
-                  })}
-            </div>
-
-            <section className="home-section">
-              <div className="section-heading">
-                <h2>Séries bombando</h2>
-                <span className="section-actions">
-                  {suggestedTrendingSeries.length > 2 && (
-                    <span className="carousel-controls">
-                      <button
-                        type="button"
-                        className="icon-button carousel-button"
-                        aria-label="Rolar séries bombando para a esquerda"
-                        onClick={() => scrollTrendingSeries("left")}
-                      >
-                        <ChevronLeft aria-hidden="true" />
-                      </button>
-                      <button
-                        type="button"
-                        className="icon-button carousel-button"
-                        aria-label="Rolar séries bombando para a direita"
-                        onClick={() => scrollTrendingSeries("right")}
-                      >
-                        <ChevronRight aria-hidden="true" />
-                      </button>
-                    </span>
-                  )}
-                </span>
-              </div>
-
-              {isTrendingSeriesLoading ? (
-                <div
-                  className="continue-watching-scroll"
-                  aria-label="Carregando séries bombando"
-                >
-                  {Array.from({ length: 5 }).map((_, index) => (
-                    <div
-                      key={`trending-skeleton-${index}`}
-                      className="continue-card continue-card-skeleton"
-                      aria-hidden="true"
-                    >
-                      <span className="continue-poster-frame skeleton" />
-                      <span className="continue-copy">
-                        <span className="skeleton skeleton-text skeleton-title" />
-                        <span className="skeleton skeleton-text skeleton-subtitle" />
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : suggestedTrendingSeries.length === 0 ? (
-                <p className="empty-state">
-                  Nenhuma sugestão fora da sua biblioteca no momento.
-                </p>
-              ) : (
-                <div
-                  ref={trendingScrollRef}
-                  className="continue-watching-scroll trending-series-scroll"
-                  onWheel={handleContinueWatchingWheel}
-                >
-                  {suggestedTrendingSeries.map((series) => (
-                    <article key={series.tmdb_id} className="trending-card">
-                      <button
-                        type="button"
-                        className="continue-card trending-detail-button"
-                        onClick={() => openTrendingSeriesDetails(series)}
-                      >
-                        <span className="continue-poster-frame">
-                          <MediaImage
-                            path={series.poster_path}
-                            alt={`Capa de ${series.name}`}
-                            className="continue-poster"
-                            fallback="Sem capa"
-                            size="w342"
-                          />
-                          <span className="continue-card-shade" />
-                          <span className="trending-rating">
-                            <Star aria-hidden="true" />
-                            {series.vote_average
-                              ? series.vote_average.toFixed(1)
-                              : "-"}
-                          </span>
-                        </span>
-                        <span className="continue-copy">
-                          <strong>{series.name}</strong>
-                          <small>
-                            {series.first_air_date
-                              ? new Date(series.first_air_date).getFullYear()
-                              : "Sem data"}
-                          </small>
-                        </span>
-                      </button>
-                      <button
-                        type="button"
-                        className="trending-add-button"
-                        disabled={loading}
-                        onClick={() => openTrendingSeriesDetails(series)}
-                      >
-                        <Info aria-hidden="true" />
-                        Detalhes
-                      </button>
-                    </article>
-                  ))}
-                </div>
-              )}
-            </section>
-
-            <section className="home-section">
-              <div className="section-heading">
-                <h2>Continue assistindo</h2>
-                <span className="section-actions">
-                  {continueWatching.length > 2 && (
-                    <span className="carousel-controls">
-                      <button
-                        type="button"
-                        className="icon-button carousel-button"
-                        aria-label="Rolar para a esquerda"
-                        onClick={() => scrollContinueWatching("left")}
-                      >
-                        <ChevronLeft aria-hidden="true" />
-                      </button>
-                      <button
-                        type="button"
-                        className="icon-button carousel-button"
-                        aria-label="Rolar para a direita"
-                        onClick={() => scrollContinueWatching("right")}
-                      >
-                        <ChevronRight aria-hidden="true" />
-                      </button>
-                    </span>
-                  )}
-                  <button type="button" onClick={() => setActiveTab("tracked")}>
-                    Ver tudo
-                  </button>
-                </span>
-              </div>
-
-              {isContinueWatchingLoading ? (
-                <div
-                  className="continue-watching-scroll"
-                  aria-label="Carregando séries para continuar assistindo"
-                >
-                  {Array.from({ length: 5 }).map((_, index) => (
-                    <div
-                      key={`continue-skeleton-${index}`}
-                      className="continue-card continue-card-skeleton"
-                      aria-hidden="true"
-                    >
-                      <span className="continue-poster-frame skeleton" />
-                      <span className="continue-copy">
-                        <span className="skeleton skeleton-text skeleton-title" />
-                        <span className="skeleton skeleton-text skeleton-subtitle" />
-                        <span className="skeleton skeleton-text skeleton-progress" />
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : continueWatching.length === 0 ? (
-                <p className="empty-state">
-                  Adicione uma série para montar sua fila.
-                </p>
-              ) : (
-                <div
-                  ref={continueScrollRef}
-                  className="continue-watching-scroll"
-                  onWheel={handleContinueWatchingWheel}
-                >
-                  {continueWatching.map((series) => (
-                    <button
-                      key={series.id}
-                      type="button"
-                      className="continue-card"
-                      onClick={() => openContinueWatchingSeries(series)}
-                    >
-                      <span className="continue-poster-frame">
-                        <MediaImage
-                          path={series.poster_path}
-                          alt={`Capa de ${series.title}`}
-                          className="continue-poster"
-                          fallback="Sem capa"
-                          size="w342"
-                        />
-                        <span className="continue-card-shade" />
-                        <span className="continue-percent">
-                          {series.completed_percent}%
-                        </span>
-                        <span
-                          className="continue-play-button"
-                          aria-hidden="true"
-                        >
-                          <Play />
-                        </span>
-                      </span>
-                      <span className="continue-copy">
-                        <strong>{series.title}</strong>
-                        <small>Assistido até {getLatestEpisodeLabel(series)}</small>
-                        <span className="progress-track">
-                          <span
-                            className="progress-fill"
-                            style={{ width: `${series.completed_percent}%` }}
-                          />
-                        </span>
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </section>
-
-            <section className="home-section">
-              <div className="section-heading">
-                <h2>Próximos episódios</h2>
-                <button type="button" onClick={() => setActiveTab("calendar")}>
-                  Ver calendário
-                </button>
-              </div>
-
-              {isUpcomingEpisodeLoading ? (
-                <div
-                  className="upcoming-card upcoming-card-skeleton"
-                  aria-hidden="true"
-                >
-                  <span className="upcoming-poster skeleton" />
-                  <span>
-                    <span className="skeleton skeleton-text skeleton-title" />
-                    <span className="skeleton skeleton-text skeleton-subtitle" />
-                    <span className="skeleton skeleton-text skeleton-date" />
-                  </span>
-                </div>
-              ) : upcomingEpisodes.length > 0 ? (
-                <div className="upcoming-list">
-                  {upcomingEpisodes.map((episode) => (
-                    <button
-                      key={[
-                        episode.episode_id,
-                        episode.series_id,
-                        episode.season_number,
-                        episode.episode_number,
-                      ].join("-")}
-                      type="button"
-                      className="upcoming-card"
-                      onClick={() => openEpisodeModal(episode)}
-                    >
-                      <MediaImage
-                        path={episode.still_path ?? episode.series_poster_path}
-                        alt={`Imagem de ${episode.title ?? episode.series_title ?? "episódio"}`}
-                        className="upcoming-poster"
-                        fallback="Sem imagem"
-                        size="w300"
-                      />
-                      <span>
-                        <strong>
-                          {episode.series_title ?? "Série acompanhada"}
-                        </strong>
-                        <small>
-                          S{episode.season_number ?? "-"} - E
-                          {episode.episode_number ?? "-"}
-                          {episode.title ? ` · ${episode.title}` : ""}
-                        </small>
-                        <small>{formatDate(episode.air_date)}</small>
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <p className="empty-state">
-                  Nenhum episódio encontrado para sua fila no momento.
-                </p>
-              )}
-            </section>
-          </section>
+          <HomePage
+            authIsConfigured={auth.isConfigured}
+            authIsLoading={auth.isLoading}
+            authIsSignedIn={auth.isSignedIn}
+            continueScrollRef={continueScrollRef}
+            continueWatching={continueWatching}
+            dashboardMetrics={dashboardMetrics}
+            firstName={auth.user?.name?.split(" ")[0] ?? "Leandro"}
+            getGreeting={getGreeting}
+            getLatestEpisodeLabel={getLatestEpisodeLabel}
+            installPromptAvailable={Boolean(installPrompt)}
+            isAppInstalled={isAppInstalled}
+            isContinueWatchingLoading={isContinueWatchingLoading}
+            isDashboardLoading={isDashboardLoading}
+            isTrendingSeriesLoading={isTrendingSeriesLoading}
+            isUpcomingEpisodeLoading={isUpcomingEpisodeLoading}
+            loading={loading}
+            suggestedTrendingSeries={suggestedTrendingSeries}
+            syncLabel={syncLabel}
+            syncStatus={syncStatus}
+            trendingScrollRef={trendingScrollRef}
+            upcomingEpisodes={upcomingEpisodes}
+            userPicture={auth.user?.picture}
+            onContinueWatchingWheel={handleContinueWatchingWheel}
+            onGoToCalendar={() => setActiveTab("calendar")}
+            onGoToLibrary={() => setActiveTab("tracked")}
+            onInstallApp={installApp}
+            onOpenContinueWatchingSeries={openContinueWatchingSeries}
+            onOpenEpisodeModal={openEpisodeModal}
+            onOpenTrendingSeriesDetails={openTrendingSeriesDetails}
+            onScrollContinueWatching={scrollContinueWatching}
+            onScrollTrendingSeries={scrollTrendingSeries}
+            onSignIn={auth.signIn}
+            onSignOut={auth.signOut}
+          />
         )}
 
         {activeTab === "tracked" && (
-          <section className="library-view page-view">
-            <div className="page-topbar page-sticky">
-              <div className="page-header">
-                <div className="page-title-block">
-                  <div className="brand-mark brand-mark-small" aria-label="Series Vault">
-                    <span className="series">Series</span>
-                    <strong className="vault">Vault</strong>
-                  </div>
-                  <h1>Biblioteca</h1>
-                </div>
-                <div className="page-actions">
-                  <button
-                    type="button"
-                    className="icon-button"
-                    aria-label="Buscar séries"
-                    onClick={() => setIsSearchOpen(true)}
-                  >
-                    <Search aria-hidden="true" />
-                  </button>
-                  <button
-                    type="button"
-                    className="icon-button"
-                    aria-label={
-                      libraryViewMode === "covers"
-                        ? "Visualizar em lista"
-                        : "Visualizar em capas"
-                    }
-                    onClick={cycleLibraryViewMode}
-                  >
-                    {libraryViewMode === "covers" ? (
-                      <List aria-hidden="true" />
-                    ) : (
-                      <Grid2X2 aria-hidden="true" />
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              <div
-                className="library-tabs"
-                role="tablist"
-                aria-label="Filtros da biblioteca"
-              >
-                {libraryTabs.map((tab) => {
-                  const TabIcon = tab.icon;
-
-                  return (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      role="tab"
-                      aria-selected={libraryFilter === tab.id}
-                      className={
-                        libraryFilter === tab.id
-                          ? `library-tab library-tab-${tab.id} active`
-                          : `library-tab library-tab-${tab.id}`
-                      }
-                      onClick={() => selectLibraryFilter(tab.id)}
-                    >
-                      {TabIcon && (
-                        <TabIcon className="library-tab-icon" aria-hidden="true" />
-                      )}
-                      <span>{tab.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div
-              key={libraryFilter}
-              className={`library-tab-content ${libraryTabTransitionDirection}`}
-            >
-              {!hasLibraryGroups ? (
-                <p className="empty-state">{getLibraryEmptyMessage()}</p>
-              ) : (
-                <div className="library-groups">
-                  {groupedLibrarySeries.map((group) => {
-                    const isCollapsed =
-                      group.collapsible &&
-                      collapsedLibraryGroups.has(group.id);
-
-                    return (
-                      <section
-                        key={group.id}
-                        className="library-group"
-                      >
-                        {group.collapsible && (
-                          <button
-                            type="button"
-                            className="library-group-toggle"
-                            aria-expanded={!isCollapsed}
-                            onClick={() => toggleLibraryGroup(group.id)}
-                          >
-                            <ChevronDown
-                              className={
-                                isCollapsed
-                                  ? "library-group-icon"
-                                  : "library-group-icon expanded"
-                              }
-                              aria-hidden="true"
-                            />
-                            <span className="library-group-heading">
-                              {group.label}
-                            </span>
-                            <span className="library-group-count">
-                              {group.series.length}
-                            </span>
-                          </button>
-                        )}
-
-                        {!isCollapsed && (
-                          <div
-                            className={`library-grid library-grid-${libraryViewMode}`}
-                          >
-                            {group.series.map(renderLibraryCard)}
-                          </div>
-                        )}
-                      </section>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </section>
+          <LibraryPage
+            collapsedLibraryGroups={collapsedLibraryGroups}
+            getLibraryEmptyMessage={getLibraryEmptyMessage}
+            getLibrarySeriesMeta={getLibrarySeriesMeta}
+            getLibrarySeriesStatus={getLibrarySeriesStatus}
+            groupedLibrarySeries={groupedLibrarySeries}
+            hasLibraryGroups={hasLibraryGroups}
+            libraryFilter={libraryFilter}
+            libraryTabTransitionDirection={libraryTabTransitionDirection}
+            libraryTabs={libraryTabs}
+            libraryViewMode={libraryViewMode}
+            selectedSeriesId={selectedSeries?.id}
+            onOpenSearch={() => setIsSearchOpen(true)}
+            onSelectFilter={selectLibraryFilter}
+            onSelectSeries={setSelectedSeries}
+            onToggleGroup={toggleLibraryGroup}
+            onToggleViewMode={cycleLibraryViewMode}
+          />
         )}
-
         {activeTab === "calendar" && (
           <CalendarPage
             calendarDays={calendarDays}
