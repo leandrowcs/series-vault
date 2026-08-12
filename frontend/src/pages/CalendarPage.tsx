@@ -55,6 +55,11 @@ export const CalendarPage = ({
   const HeaderCalendarIcon = isCalendarMonthPanelExpanded
     ? CalendarOff
     : CalendarDays;
+  const monthlyEpisodeCount = Array.from(calendarEpisodeCountByDate.values()).reduce(
+    (total, count) => total + count,
+    0,
+  );
+  const monthlyReleaseDays = calendarEpisodeCountByDate.size;
 
   return (
     <section className="calendar-view page-view">
@@ -110,57 +115,57 @@ export const CalendarPage = ({
 
           {isCalendarMonthPanelExpanded && (
             <>
-            <div className="calendar-weekdays" aria-hidden="true">
-              {weekdays.map((weekday) => (
-                <span key={weekday}>{weekday}</span>
-              ))}
-            </div>
+              <div className="calendar-weekdays" aria-hidden="true">
+                {weekdays.map((weekday) => (
+                  <span key={weekday}>{weekday}</span>
+                ))}
+              </div>
 
-            <div className="calendar-grid" aria-label={calendarMonthLabel}>
-              {calendarDays.map((day) => {
-                const episodeCount =
-                  calendarEpisodeCountByDate.get(day.dateKey) ?? 0;
-                const isToday = day.dateKey === todayDateKey;
-                const isPast = day.dateKey < todayDateKey;
-                const isSelected = selectedCalendarDate === day.dateKey;
-                const isSelectable =
-                  day.isCurrentMonth && !isPast && episodeCount > 0;
+              <div className="calendar-grid" aria-label={calendarMonthLabel}>
+                {calendarDays.map((day) => {
+                  const episodeCount =
+                    calendarEpisodeCountByDate.get(day.dateKey) ?? 0;
+                  const isToday = day.dateKey === todayDateKey;
+                  const isPast = day.dateKey < todayDateKey;
+                  const isSelected = selectedCalendarDate === day.dateKey;
+                  const isSelectable =
+                    day.isCurrentMonth && !isPast && episodeCount > 0;
 
-                return (
-                  <button
-                    key={day.dateKey}
-                    type="button"
-                    className={[
-                      "calendar-day",
-                      !day.isCurrentMonth ? "outside-month" : "",
-                      isPast ? "past" : "",
-                      isToday ? "today" : "",
-                      episodeCount > 0 ? "has-episodes" : "",
-                      isSelected ? "selected" : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" ")}
-                    aria-label={`${day.dayNumber} de ${calendarMonthLabel}${
-                      episodeCount > 0
-                        ? `, ${episodeCount} episódio${
-                            episodeCount > 1 ? "s" : ""
-                          }`
-                        : ""
-                    }`}
-                    aria-pressed={isSelected}
-                    disabled={!isSelectable}
-                    onClick={() => onSelectCalendarDay(day)}
-                  >
-                    <span>{day.dayNumber}</span>
-                    {episodeCount > 0 && (
-                      <span className="calendar-day-marker">
-                        {episodeCount > 3 ? "3+" : episodeCount}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
+                  return (
+                    <button
+                      key={day.dateKey}
+                      type="button"
+                      className={[
+                        "calendar-day",
+                        !day.isCurrentMonth ? "outside-month" : "",
+                        isPast ? "past" : "",
+                        isToday ? "today" : "",
+                        episodeCount > 0 ? "has-episodes" : "",
+                        isSelected ? "selected" : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
+                      aria-label={`${day.dayNumber} de ${calendarMonthLabel}${
+                        episodeCount > 0
+                          ? `, ${episodeCount} episódio${
+                              episodeCount > 1 ? "s" : ""
+                            }`
+                          : ""
+                      }`}
+                      aria-pressed={isSelected}
+                      disabled={!isSelectable}
+                      onClick={() => onSelectCalendarDay(day)}
+                    >
+                      <span>{day.dayNumber}</span>
+                      {episodeCount > 0 && (
+                        <span className="calendar-day-marker">
+                          {episodeCount > 3 ? "3+" : episodeCount}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             </>
           )}
         </section>
@@ -228,6 +233,18 @@ export const CalendarPage = ({
               ))}
             </div>
           )}
+
+          <div className="calendar-month-summary">
+            <strong>{monthlyEpisodeCount}</strong>
+            <span>Episódios previstos neste mês</span>
+            <small>
+              {monthlyReleaseDays > 0
+                ? `Distribuídos em ${monthlyReleaseDays} dia${
+                    monthlyReleaseDays > 1 ? "s" : ""
+                  }`
+                : "Nenhum lançamento encontrado para este mês."}
+            </small>
+          </div>
         </section>
       </div>
     </section>

@@ -57,6 +57,7 @@ import {
   YearStat,
 } from "./types/series";
 import { CalendarPage } from "./pages/CalendarPage";
+import { StatsPage } from "./pages/StatsPage";
 import {
   addMonths,
   formatDate,
@@ -1617,14 +1618,16 @@ function App() {
 
   useEffect(() => {
     if (
-      (activeTab !== "home" && activeTab !== "calendar") ||
+      (activeTab !== "home" &&
+        activeTab !== "calendar" &&
+        activeTab !== "stats") ||
       !hasApi
     ) {
       return;
     }
 
     const prefetchSeries =
-      activeTab === "calendar"
+      activeTab === "calendar" || activeTab === "stats"
         ? calendarEligibleSeries
         : continueWatching.slice(0, 6);
 
@@ -3063,101 +3066,17 @@ function App() {
         )}
 
         {activeTab === "stats" && (
-          <section className="stats-view page-view">
-            <div className="page-topbar page-sticky">
-              <div className="page-header">
-                <div className="page-title-block">
-                  <div className="brand-mark brand-mark-small" aria-label="Series Vault">
-                    <span className="series">Series</span>
-                    <strong className="vault">Vault</strong>
-                  </div>
-                  <h1>Estatísticas</h1>
-                </div>
-              </div>
-            </div>
-
-            <div className="page-scroll-content stats-grid">
-              <div className="stat-card">
-                <h3>Visão geral</h3>
-                <p>
-                  {isStatsLoading &&
-                  !stats.overview &&
-                  watchedRecords.length === 0
-                    ? "..."
-                    : `${totalWatchedEpisodes} episódios assistidos`}
-                </p>
-                <p>
-                  {isStatsLoading &&
-                  !stats.overview &&
-                  watchedRecords.length === 0
-                    ? ""
-                    : `${totalRuntimeMinutes} minutos no total`}
-                </p>
-              </div>
-
-              <div className="stat-card">
-                <h3>Gêneros</h3>
-                <ol>
-                  {stats.genres.slice(0, 6).map((item) => (
-                    <li key={item.genre}>
-                      {item.genre}: {item.count}
-                    </li>
-                  ))}
-                </ol>
-              </div>
-
-              <div className="stat-card">
-                <h3>Atores</h3>
-                <ol className="image-list">
-                  {stats.actors.slice(0, 6).map((item) => (
-                    <li key={item.actor}>
-                      <MediaImage
-                        path={item.profile_path}
-                        alt={`Foto de ${item.actor}`}
-                        className="profile-thumb"
-                        fallback={item.actor.slice(0, 1)}
-                        size="w185"
-                      />
-                      <span>
-                        {item.actor}: {item.count}
-                      </span>
-                    </li>
-                  ))}
-                </ol>
-              </div>
-
-              <div className="stat-card">
-                <h3>Anos</h3>
-                <ol>
-                  {stats.years.slice(0, 6).map((item) => (
-                    <li key={item.year}>
-                      {item.year}: {item.count}
-                    </li>
-                  ))}
-                </ol>
-              </div>
-
-              <div className="stat-card wide-card">
-                <h3>Séries mais assistidas</h3>
-                <ol className="poster-list">
-                  {stats.topSeries.slice(0, 8).map((item) => (
-                    <li key={item.series}>
-                      <MediaImage
-                        path={item.poster_path}
-                        alt={`Capa de ${item.series}`}
-                        className="mini-poster"
-                        fallback="Sem capa"
-                        size="w185"
-                      />
-                      <span>
-                        {item.series}: {item.count}
-                      </span>
-                    </li>
-                  ))}
-                </ol>
-              </div>
-            </div>
-          </section>
+          <StatsPage
+            actorStats={stats.actors}
+            episodeCache={episodeCache}
+            genreStats={stats.genres}
+            isStatsLoading={isStatsLoading}
+            topSeriesStats={stats.topSeries}
+            totalRuntimeMinutes={totalRuntimeMinutes}
+            totalWatchedEpisodes={totalWatchedEpisodes}
+            tracked={tracked}
+            watchedRecords={watchedRecords}
+          />
         )}
 
       </main>
