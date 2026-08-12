@@ -124,11 +124,15 @@ const getEpisodeKey = (episode: Pick<EpisodeDetail, "id" | "tmdb_episode_id">) =
 const getMonthKey = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 
-const getLastSixMonths = () => {
+const getLastMonths = (monthCount: number) => {
   const today = new Date();
 
-  return Array.from({ length: 6 }, (_, index) => {
-    const date = new Date(today.getFullYear(), today.getMonth() - (5 - index), 1);
+  return Array.from({ length: monthCount }, (_, index) => {
+    const date = new Date(
+      today.getFullYear(),
+      today.getMonth() - (monthCount - 1 - index),
+      1,
+    );
 
     return {
       key: getMonthKey(date),
@@ -173,17 +177,19 @@ const StatsPanel = ({
 const StatsSeeMoreButton = ({
   expanded,
   onClick,
+  previewCount = previewLimit,
   total,
 }: {
   expanded: boolean;
   onClick: () => void;
+  previewCount?: number;
   total: number;
 }) => {
-  if (total <= previewLimit) return null;
+  if (total <= previewCount) return null;
 
   return (
     <button type="button" className="stats-see-more-button" onClick={onClick}>
-      {expanded ? "Ver menos" : `Ver mais ${total - previewLimit}`}
+      {expanded ? "Ver menos" : `Ver mais ${total - previewCount}`}
     </button>
   );
 };
@@ -201,6 +207,7 @@ export const StatsPage = ({
 }: StatsPageProps) => {
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const [expandedLists, setExpandedLists] = useState<Record<string, boolean>>({});
+  const [activeActorTooltip, setActiveActorTooltip] = useState<string | null>(null);
   const watchedKeys = new Set(watchedRecords.map((record) => record.episode_key));
   const watchedCountBySeries = new Map<number, number>();
   const runtimeBySeries = new Map<number, number>();
@@ -274,14 +281,16 @@ export const StatsPage = ({
     })
     .filter((episode) => !watchedKeys.has(getEpisodeKey(episode))).length;
 
-  const monthlyBuckets = getLastSixMonths().map((month) => ({
+  const monthlyBuckets = getLastMonths(12).map((month) => ({
     ...month,
     count: watchedRecords.filter((record) => {
       const watchedAt = new Date(record.watched_at);
       return !Number.isNaN(watchedAt.getTime()) && getMonthKey(watchedAt) === month.key;
     }).length,
   }));
-  const visibleMonthlyBuckets = getVisibleItems("rhythm", monthlyBuckets);
+  const visibleMonthlyBuckets = expandedLists.rhythm
+    ? monthlyBuckets
+    : monthlyBuckets.slice(-6);
   const maxMonthlyCount = Math.max(...visibleMonthlyBuckets.map((month) => month.count), 1);
 
   const localGenreStats = Array.from(
@@ -451,11 +460,15 @@ export const StatsPage = ({
         <StatsPanel
           collapsed={Boolean(collapsedSections.rhythm)}
           icon={BarChart3}
-          meta={expandedLists.rhythm ? "Últimos 6 meses" : "Últimos 5 meses"}
+          meta={expandedLists.rhythm ? "Últimos 12 meses" : "Últimos 6 meses"}
           onToggle={() => toggleSection("rhythm")}
           title="Ritmo"
         >
-          <div className="stats-month-chart">
+          <div
+            className={`stats-month-chart ${
+              expandedLists.rhythm ? "stats-month-chart-expanded" : ""
+            }`}
+          >
             {visibleMonthlyBuckets.map((month) => (
               <div key={month.key} className="stats-month-bar-wrap">
                 <span
@@ -471,6 +484,7 @@ export const StatsPage = ({
           <StatsSeeMoreButton
             expanded={Boolean(expandedLists.rhythm)}
             onClick={() => toggleList("rhythm")}
+            previewCount={6}
             total={monthlyBuckets.length}
           />
         </StatsPanel>
@@ -584,27 +598,45 @@ export const StatsPage = ({
             <p className="empty-state">Elenco aparece quando houver séries com créditos.</p>
           ) : (
             <div className="stats-actor-grid">
-              {visibleActors.map((actor) => (
-                <div key={actor.actor} className="stats-actor-item">
-                  <MediaImage
-                    path={actor.profile_path}
-                    alt={`Foto de ${actor.actor}`}
-                    className="actor-avatar"
-                    fallback={actor.actor.slice(0, 1)}
-                    size="w185"
-                  />
-                  <span>
-                    <strong>{actor.actor}</strong>
-                    <small>{actor.count} séries</small>
-                    {actor.seriesTitles.length > 0 && (
-                      <em title={actor.seriesTitles.join(", ")}>
-                        {actor.seriesTitles.slice(0, 3).join(", ")}
-                        {actor.seriesTitles.length > 3 ? "..." : ""}
-                      </em>
+              {visibleActors.map((actor) => {
+                const tooltipId = `actor-series-${actor.actor.replace(/\W+/g, "-")}`;
+                const isTooltipOpen = activeActorTooltip === actor.actor;
+
+                return (
+                  <div key={actor.actor} className="stats-actor-item">
+                    <MediaImage
+                      path={actor.profile_path}
+                      alt={`Foto de ${actor.actor}`}
+                      className="actor-avatar"
+                      fallback={actor.actor.slice(0, 1)}
+                      size="w185"
+                    />
+                    <span>
+                      <strong>{actor.actor}</strong>
+                      <button
+                        type="button"
+                        className="stats-actor-series-button"
+                        aria-expanded={isTooltipOpen}
+                        aria-controls={tooltipId}
+                        disabled={actor.seriesTitles.length === 0}
+                        onClick={() =>
+                          setActiveActorTooltip((currentActor) =>
+                            currentActor === actor.actor ? null : actor.actor,
+                          )
+                        }
+                      >
+                        {actor.count} {actor.count === 1 ? "série" : "séries"}
+                      </button>
+                    </span>
+                    {isTooltipOpen && actor.seriesTitles.length > 0 && (
+                      <div id={tooltipId} className="stats-actor-series-popover">
+                        <strong>Séries</strong>
+                        <span>{actor.seriesTitles.join(", ")}</span>
+                      </div>
                     )}
-                  </span>
-                </div>
-              ))}
+                  </div>
+                );
+              })}
             </div>
           )}
           <StatsSeeMoreButton

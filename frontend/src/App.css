@@ -1299,6 +1299,11 @@
   padding-top: 8px;
 }
 
+.stats-month-chart-expanded {
+  row-gap: 12px;
+  min-height: 218px;
+}
+
 .stats-month-bar-wrap {
   display: grid;
   grid-template-rows: 72px auto auto;
@@ -1386,6 +1391,10 @@
   min-width: 0;
 }
 
+.stats-actor-item {
+  position: relative;
+}
+
 .stats-ranked-item {
   position: relative;
   grid-template-columns: 28px auto minmax(0, 1fr);
@@ -1471,21 +1480,58 @@
 }
 
 .stats-ranked-item small,
-.stats-actor-item small {
+.stats-actor-series-button {
   color: var(--muted);
   font-size: 0.72rem;
   font-weight: 800;
 }
 
-.stats-actor-item em {
-  overflow: hidden;
-  color: rgba(232, 241, 238, 0.68);
-  font-size: 0.68rem;
-  font-style: normal;
-  font-weight: 700;
-  line-height: 1.25;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.stats-actor-series-button {
+  justify-self: start;
+  max-width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+}
+
+.stats-actor-series-button:not(:disabled):hover {
+  color: var(--green);
+}
+
+.stats-actor-series-button:disabled {
+  cursor: default;
+}
+
+.stats-actor-series-popover {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: calc(100% + 6px);
+  z-index: 5;
+  display: grid;
+  gap: 5px;
+  padding: 9px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: rgba(6, 10, 9, 0.96);
+  box-shadow: 0 14px 26px rgba(0, 0, 0, 0.34);
+}
+
+.stats-actor-series-popover strong {
+  font-size: 0.72rem;
+  white-space: normal;
+}
+
+.stats-actor-series-popover span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1.35;
 }
 
 .stats-actor-grid {
