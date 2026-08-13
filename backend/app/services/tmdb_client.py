@@ -52,6 +52,30 @@ def tmdb_get_trending_tv(page: int = 1) -> list[dict]:
     ]
 
 
+def tmdb_get_popular_tv(page: int = 1) -> list[dict]:
+    with _get_client() as client:
+        response = client.get(
+            "/tv/popular",
+            params={"api_key": settings.tmdb_api_key, "language": "pt-BR", "page": page},
+        )
+        response.raise_for_status()
+        data = response.json()
+    return [
+        {
+            "tmdb_id": item["id"],
+            "name": item.get("name") or item.get("original_name"),
+            "first_air_date": item.get("first_air_date"),
+            "overview": item.get("overview"),
+            "poster_path": item.get("poster_path"),
+            "vote_average": item.get("vote_average"),
+            "vote_count": item.get("vote_count"),
+            "popularity": item.get("popularity"),
+        }
+        for item in data.get("results", [])
+        if item.get("poster_path")
+    ]
+
+
 def tmdb_get_tv_details(tmdb_id: int) -> dict:
     with _get_client() as client:
         response = client.get(

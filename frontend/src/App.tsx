@@ -45,6 +45,7 @@ import {
   SeriesVaultBackup,
   StreamingProvider,
   TopSeriesStat,
+  PopularSeries,
   TrendingSeries,
   TrackedSeries,
   UpcomingEpisodeItem,
@@ -382,6 +383,7 @@ function App() {
   const pushNotifications = usePushNotifications(auth.user?.uid);
   const continueScrollRef = useRef<HTMLDivElement | null>(null);
   const trendingScrollRef = useRef<HTMLDivElement | null>(null);
+  const popularScrollRef = useRef<HTMLDivElement | null>(null);
   const requestedSeriesModalTabRef = useRef<SeriesModalTab>("details");
   const requestedExpandedSeasonRef = useRef<number | null>(null);
   const requestedEpisodeRef = useRef<EpisodeDetail | null>(null);
@@ -393,6 +395,7 @@ function App() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [trendingSeries, setTrendingSeries] = useState<TrendingSeries[]>([]);
+  const [popularSeries, setPopularSeries] = useState<PopularSeries[]>([]);
   const [tracked, setTracked] = useState<TrackedSeries[]>([]);
   const [selectedSeries, setSelectedSeries] = useState<TrackedSeries | null>(
     null,
@@ -426,6 +429,7 @@ function App() {
   const [isTrackedLoading, setIsTrackedLoading] = useState(false);
   const [isCalendarLoading, setIsCalendarLoading] = useState(false);
   const [isTrendingLoading, setIsTrendingLoading] = useState(false);
+  const [isPopularLoading, setIsPopularLoading] = useState(false);
   const [isEpisodePrefetchLoading, setIsEpisodePrefetchLoading] =
     useState(false);
   const [isStatsLoading, setIsStatsLoading] = useState(false);
@@ -594,6 +598,7 @@ function App() {
     }
     if (activeTab === "home") {
       fetchTrendingSeries();
+      fetchPopularSeries();
     }
   }, [activeTab, calendarMonth]);
 
@@ -852,6 +857,32 @@ function App() {
       setError(getApiErrorMessage(err, "Falha ao carregar séries em destaque"));
     } finally {
       setIsTrendingLoading(false);
+    }
+  };
+
+  const fetchPopularSeries = async (force = false) => {
+    if (!hasApi || (!force && popularSeries.length > 0)) return;
+
+    try {
+      setIsPopularLoading(true);
+      const pages = await Promise.all(
+        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((page) =>
+          api.get<PopularSeries[]>("/series", {
+            params: { route: "popular", page },
+          }),
+        ),
+      );
+      const combined = pages.flatMap((page) =>
+        getArrayResponse<PopularSeries>(page.data, "séries populares"),
+      );
+      const uniqueByTmdbId = Array.from(
+        new Map(combined.map((series) => [series.tmdb_id, series])).values(),
+      );
+      setPopularSeries(uniqueByTmdbId);
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Falha ao carregar séries populares"));
+    } finally {
+      setIsPopularLoading(false);
     }
   };
 
@@ -1471,6 +1502,7 @@ function App() {
         fetchCalendar(startDate, endDate),
         fetchStats(),
         fetchTrendingSeries(true),
+        fetchPopularSeries(true),
       ]);
       return;
     }
@@ -1593,6 +1625,23 @@ function App() {
       )
       .slice(0, 10);
   }, [tracked, trendingSeries]);
+
+  const suggestedPopularSeries = useMemo(() => {
+    const trackedTmdbIds = new Set(tracked.map((series) => series.tmdb_id));
+
+    return popularSeries
+      .filter((series) => !trackedTmdbIds.has(series.tmdb_id))
+      .filter(
+        (series) =>
+          Number(series.vote_count ?? 0) >= 500 &&
+          Number(series.vote_average ?? 0) >= 7.5,
+      )
+      .sort(
+        (seriesA, seriesB) =>
+          Number(seriesB.popularity ?? 0) - Number(seriesA.popularity ?? 0),
+      )
+      .slice(0, 10);
+  }, [tracked, popularSeries]);
 
   useEffect(() => {
     if (
@@ -1814,6 +1863,8 @@ function App() {
     isTrackedLoading && continueWatching.length === 0;
   const isTrendingSeriesLoading =
     isTrendingLoading && suggestedTrendingSeries.length === 0;
+  const isPopularSeriesLoading =
+    isPopularLoading && suggestedPopularSeries.length === 0;
   const isUpcomingEpisodeLoading =
     (isCalendarLoading || isEpisodePrefetchLoading) &&
     upcomingEpisodes.length === 0;
@@ -2181,6 +2232,21 @@ function App() {
     );
   };
 
+  const openPopularSeriesDetails = (series: PopularSeries) => {
+    const trackedSeries = tracked.find((item) => item.tmdb_id === series.tmdb_id);
+
+    openSeriesModal(
+      trackedSeries ??
+        normalizeTrackedSeries({
+          ...series,
+          id: series.tmdb_id,
+          tmdb_id: series.tmdb_id,
+          title: series.name,
+          completed_percent: 0,
+        }),
+    );
+  };
+
   const getInProgressSeasonNumber = (series: TrackedSeries) => {
     const seriesEpisodes = episodeCache[String(series.tmdb_id)] ?? [];
     const sortedEpisodes = [...seriesEpisodes]
@@ -2426,6 +2492,17 @@ function App() {
     });
   };
 
+  const scrollPopularSeries = (direction: "left" | "right") => {
+    const container = popularScrollRef.current;
+    if (!container) return;
+
+    const distance = Math.round(container.clientWidth * 0.78);
+    container.scrollBy({
+      left: direction === "left" ? -distance : distance,
+      behavior: "smooth",
+    });
+  };
+
   const handleContinueWatchingWheel = (
     event: WheelEvent<HTMLDivElement>,
   ) => {
@@ -2464,13 +2541,14 @@ function App() {
     { id: "search", label: "Buscar", icon: Search },
   ];
 
-  if (!auth.user) {
+  if (!auth.user || !hasLoadedCloudData) {
     return (
       <div className="app-shell login-shell">
         <LoginPage
           authError={auth.error}
           isAuthLoading={auth.isLoading}
           isConfigured={auth.isConfigured}
+          isLoadingUserData={Boolean(auth.user) && !hasLoadedCloudData}
           onSignIn={auth.signIn}
         />
       </div>
@@ -2496,15 +2574,18 @@ function App() {
             isContinueWatchingLoading={isContinueWatchingLoading}
             isDashboardLoading={isDashboardLoading}
             isTrendingSeriesLoading={isTrendingSeriesLoading}
+            isPopularSeriesLoading={isPopularSeriesLoading}
             isUpcomingEpisodeLoading={isUpcomingEpisodeLoading}
             loading={loading}
             notificationStatus={
               auth.isSignedIn ? pushNotifications.status : "unsupported"
             }
             suggestedTrendingSeries={suggestedTrendingSeries}
+            suggestedPopularSeries={suggestedPopularSeries}
             syncLabel={syncLabel}
             syncStatus={syncStatus}
             trendingScrollRef={trendingScrollRef}
+            popularScrollRef={popularScrollRef}
             upcomingEpisodes={upcomingEpisodes}
             userPicture={auth.user?.picture}
             onContinueWatchingWheel={handleContinueWatchingWheel}
@@ -2515,8 +2596,10 @@ function App() {
             onOpenContinueWatchingSeries={openContinueWatchingSeries}
             onOpenEpisodeModal={openEpisodeModal}
             onOpenTrendingSeriesDetails={openTrendingSeriesDetails}
+            onOpenPopularSeriesDetails={openPopularSeriesDetails}
             onScrollContinueWatching={scrollContinueWatching}
             onScrollTrendingSeries={scrollTrendingSeries}
+            onScrollPopularSeries={scrollPopularSeries}
             onSignIn={auth.signIn}
             onSignOut={auth.signOut}
           />

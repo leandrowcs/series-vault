@@ -136,6 +136,7 @@ type LoginPageProps = {
   authError?: string | null;
   isAuthLoading: boolean;
   isConfigured: boolean;
+  isLoadingUserData?: boolean;
   onSignIn: () => void;
 };
 
@@ -143,6 +144,7 @@ export const LoginPage = ({
   authError,
   isAuthLoading,
   isConfigured,
+  isLoadingUserData = false,
   onSignIn,
 }: LoginPageProps) => {
   const carouselRef = useRef<HTMLElement | null>(null);
@@ -237,15 +239,27 @@ export const LoginPage = ({
         {!isConfigured && (
           <p className="login-error">Firebase não configurado neste ambiente.</p>
         )}
-        <button
-          type="button"
-          className="login-google-button"
-          disabled={!isConfigured || isAuthLoading}
-          onClick={onSignIn}
-        >
-          <LogIn aria-hidden="true" />
-          Entrar com Google
-        </button>
+        {isLoadingUserData ? (
+          <div
+            className="login-loading-progress"
+            role="progressbar"
+            aria-label="Carregando sua biblioteca"
+            aria-busy="true"
+          >
+            <span className="login-loading-bar" />
+            <p>Carregando sua biblioteca…</p>
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="login-google-button"
+            disabled={!isConfigured || isAuthLoading}
+            onClick={onSignIn}
+          >
+            <LogIn aria-hidden="true" />
+            Entrar com Google
+          </button>
+        )}
       </section>
     </main>
   );

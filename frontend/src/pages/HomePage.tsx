@@ -22,6 +22,7 @@ import type { PushNotificationStatus } from "../hooks/usePushNotifications";
 import type {
   TrackedSeries,
   TrendingSeries,
+  PopularSeries,
   UpcomingEpisodeItem,
 } from "../types/series";
 import { formatDate, getDateKey, toDateKey } from "../utils/date";
@@ -36,13 +37,16 @@ type HomePageProps = {
   isContinueWatchingLoading: boolean;
   isDashboardLoading: boolean;
   isTrendingSeriesLoading: boolean;
+  isPopularSeriesLoading: boolean;
   isUpcomingEpisodeLoading: boolean;
   loading: boolean;
   notificationStatus: PushNotificationStatus;
   suggestedTrendingSeries: TrendingSeries[];
+  suggestedPopularSeries: PopularSeries[];
   syncLabel: string;
   syncStatus: "idle" | "syncing" | "synced" | "error";
   trendingScrollRef: RefObject<HTMLDivElement>;
+  popularScrollRef: RefObject<HTMLDivElement>;
   upcomingEpisodes: UpcomingEpisodeItem[];
   userPicture?: string;
   authIsConfigured: boolean;
@@ -56,8 +60,10 @@ type HomePageProps = {
   onOpenContinueWatchingSeries: (series: TrackedSeries) => void;
   onOpenEpisodeModal: (episode: UpcomingEpisodeItem) => void;
   onOpenTrendingSeriesDetails: (series: TrendingSeries) => void;
+  onOpenPopularSeriesDetails: (series: PopularSeries) => void;
   onScrollContinueWatching: (direction: "left" | "right") => void;
   onScrollTrendingSeries: (direction: "left" | "right") => void;
+  onScrollPopularSeries: (direction: "left" | "right") => void;
   onSignIn: () => void;
   onSignOut: () => void;
   getGreeting: () => string;
@@ -74,13 +80,16 @@ export const HomePage = ({
   isContinueWatchingLoading,
   isDashboardLoading,
   isTrendingSeriesLoading,
+  isPopularSeriesLoading,
   isUpcomingEpisodeLoading,
   loading,
   notificationStatus,
   suggestedTrendingSeries,
+  suggestedPopularSeries,
   syncLabel,
   syncStatus,
   trendingScrollRef,
+  popularScrollRef,
   upcomingEpisodes,
   userPicture,
   authIsConfigured,
@@ -94,8 +103,10 @@ export const HomePage = ({
   onOpenContinueWatchingSeries,
   onOpenEpisodeModal,
   onOpenTrendingSeriesDetails,
+  onOpenPopularSeriesDetails,
   onScrollContinueWatching,
   onScrollTrendingSeries,
+  onScrollPopularSeries,
   onSignIn,
   onSignOut,
   getGreeting,
@@ -422,6 +433,107 @@ export const HomePage = ({
                   className="trending-add-button"
                   disabled={loading}
                   onClick={() => onOpenTrendingSeriesDetails(series)}
+                >
+                  <Info aria-hidden="true" />
+                  Detalhes
+                </button>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="home-section">
+        <div className="section-heading">
+          <h2>Séries populares</h2>
+          <span className="section-actions">
+            {suggestedPopularSeries.length > 2 && (
+              <span className="carousel-controls">
+                <button
+                  type="button"
+                  className="icon-button carousel-button"
+                  aria-label="Rolar séries populares para a esquerda"
+                  onClick={() => onScrollPopularSeries("left")}
+                >
+                  <ChevronLeft aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  className="icon-button carousel-button"
+                  aria-label="Rolar séries populares para a direita"
+                  onClick={() => onScrollPopularSeries("right")}
+                >
+                  <ChevronRight aria-hidden="true" />
+                </button>
+              </span>
+            )}
+          </span>
+        </div>
+
+        {isPopularSeriesLoading ? (
+          <div
+            className="continue-watching-scroll"
+            aria-label="Carregando séries populares"
+          >
+            {Array.from({ length: 5 }).map((_, index) => (
+              <div
+                key={`popular-skeleton-${index}`}
+                className="continue-card continue-card-skeleton"
+                aria-hidden="true"
+              >
+                <span className="continue-poster-frame skeleton" />
+                <span className="continue-copy">
+                  <span className="skeleton skeleton-text skeleton-title" />
+                  <span className="skeleton skeleton-text skeleton-subtitle" />
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : suggestedPopularSeries.length === 0 ? (
+          <p className="empty-state">
+            Nenhuma sugestão fora da sua biblioteca no momento.
+          </p>
+        ) : (
+          <div
+            ref={popularScrollRef}
+            className="continue-watching-scroll trending-series-scroll"
+            onWheel={onContinueWatchingWheel}
+          >
+            {suggestedPopularSeries.map((series) => (
+              <article key={series.tmdb_id} className="trending-card">
+                <button
+                  type="button"
+                  className="continue-card trending-detail-button"
+                  onClick={() => onOpenPopularSeriesDetails(series)}
+                >
+                  <span className="continue-poster-frame">
+                    <MediaImage
+                      path={series.poster_path}
+                      alt={`Capa de ${series.name}`}
+                      className="continue-poster"
+                      fallback="Sem capa"
+                      size="w342"
+                    />
+                    <span className="continue-card-shade" />
+                    <span className="trending-rating">
+                      <Star aria-hidden="true" />
+                      {series.vote_average ? series.vote_average.toFixed(1) : "-"}
+                    </span>
+                  </span>
+                  <span className="continue-copy">
+                    <strong>{series.name}</strong>
+                    <small>
+                      {series.first_air_date
+                        ? new Date(series.first_air_date).getFullYear()
+                        : "Sem data"}
+                    </small>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className="trending-add-button"
+                  disabled={loading}
+                  onClick={() => onOpenPopularSeriesDetails(series)}
                 >
                   <Info aria-hidden="true" />
                   Detalhes

@@ -12,6 +12,8 @@ export type TrendingSeries = SearchResult & {
   popularity?: number
 }
 
+export type PopularSeries = TrendingSeries
+
 export type TrackedSeries = {
   id: number
   tmdb_id: number

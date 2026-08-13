@@ -7,6 +7,7 @@ from app.db.session import get_session
 from app.db.models import Episode, EpisodeWatch, Series, SeriesCast, SeriesGenre, Season
 from app.services.sync_service import sync_series_by_tmdb_id
 from app.services.tmdb_client import (
+    tmdb_get_popular_tv,
     tmdb_get_trending_tv,
     tmdb_get_watch_providers,
     tmdb_search_by_name,
@@ -126,6 +127,9 @@ def series_entrypoint(
     if route == "trending":
         return get_trending_series(page)
 
+    if route == "popular":
+        return get_popular_series(page)
+
     if route == "episodes":
         if series_id is None:
             raise HTTPException(status_code=400, detail="seriesId query param is required")
@@ -189,6 +193,16 @@ def get_tracked_series(session: Session = Depends(get_session)) -> List[dict]:
 def get_trending_series(page: int = Query(1, ge=1)) -> List[dict]:
     try:
         return tmdb_get_trending_tv(page)
+    except httpx.RequestError as exc:
+        raise _tmdb_http_exception(exc)
+    except httpx.HTTPStatusError as exc:
+        raise HTTPException(status_code=502, detail=f"TMDb returned status {exc.response.status_code}")
+
+
+@router.get("/popular")
+def get_popular_series(page: int = Query(1, ge=1)) -> List[dict]:
+    try:
+        return tmdb_get_popular_tv(page)
     except httpx.RequestError as exc:
         raise _tmdb_http_exception(exc)
     except httpx.HTTPStatusError as exc:
