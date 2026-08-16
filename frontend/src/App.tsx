@@ -604,9 +604,6 @@ function App() {
 
   useEffect(() => {
     if (selectedSeries) {
-      const selectedTrackedSeries = tracked.find(
-        (series) => series.tmdb_id === selectedSeries.tmdb_id,
-      );
       const requestedExpandedSeason = requestedExpandedSeasonRef.current;
       const requestedEpisode = requestedEpisodeRef.current;
 
@@ -626,10 +623,16 @@ function App() {
       if (requestedExpandedSeason !== null) {
         setSeasonToScroll(requestedExpandedSeason);
       }
+    }
+  }, [selectedSeries?.tmdb_id]);
 
-      if (selectedTrackedSeries) {
-        fetchSeriesEpisodes(selectedTrackedSeries.id);
-      }
+  useEffect(() => {
+    if (!selectedSeries) return;
+    const selectedTrackedSeries = tracked.find(
+      (series) => series.tmdb_id === selectedSeries.tmdb_id,
+    );
+    if (selectedTrackedSeries) {
+      fetchSeriesEpisodes(selectedTrackedSeries.id);
     }
   }, [selectedSeries?.tmdb_id, tracked]);
 
