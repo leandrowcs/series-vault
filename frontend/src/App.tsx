@@ -269,9 +269,36 @@ const isSeriesAbandoned = (series: TrackedSeries) => {
   return abandonedSeriesStatuses.has(userStatus);
 };
 
-const getLibrarySeriesStatus = (series: TrackedSeries): LibrarySeriesStatus => {
+const getTrackedSeriesLibraryStatus = (
+  series: TrackedSeries,
+  episodeCache: Record<string, EpisodeDetail[]> = {},
+  watchedEpisodeKeys: Set<string> = new Set(),
+): LibrarySeriesStatus => {
   if (isSeriesAbandoned(series)) {
     return "abandoned";
+  }
+
+  const regularEpisodes =
+    episodeCache[String(series.tmdb_id)]?.filter(
+      (episode) => episode.season_number > 0,
+    ) ?? [];
+
+  if (regularEpisodes.length > 0) {
+    const releasedEpisodes = regularEpisodes.filter((episode) =>
+      isEpisodeReleased(episode),
+    );
+    const watchedReleasedEpisodes = releasedEpisodes.filter((episode) =>
+      watchedEpisodeKeys.has(getEpisodeKey(episode)),
+    );
+    const hasUpcomingEpisodes = releasedEpisodes.length < regularEpisodes.length;
+
+    if (
+      watchedReleasedEpisodes.length > 0 &&
+      watchedReleasedEpisodes.length === releasedEpisodes.length &&
+      hasUpcomingEpisodes
+    ) {
+      return "waiting";
+    }
   }
 
   if (series.completed_percent > 0 && series.completed_percent < 100) {
@@ -1541,6 +1568,9 @@ function App() {
     [watchedRecords],
   );
 
+  const getLibrarySeriesStatus = (series: TrackedSeries) =>
+    getTrackedSeriesLibraryStatus(series, episodeCache, watchedEpisodeKeys);
+
   const episodeRuntimeByKey = useMemo(() => {
     const runtimeByKey = new Map<string, number>();
 
@@ -1600,7 +1630,7 @@ function App() {
           (seriesA, seriesB) =>
             seriesB.completed_percent - seriesA.completed_percent,
         ),
-    [tracked],
+    [tracked, episodeCache, watchedEpisodeKeys],
   );
 
   const calendarEligibleSeries = useMemo(
@@ -1614,7 +1644,7 @@ function App() {
           status === "notStarted"
         );
       }),
-    [tracked],
+    [tracked, episodeCache, watchedEpisodeKeys],
   );
 
   const suggestedTrendingSeries = useMemo(() => {
@@ -1823,7 +1853,7 @@ function App() {
     });
 
     return Array.from(byEpisode.values());
-  }, [calendarEvents, newEpisodes, tracked]);
+  }, [calendarEvents, newEpisodes, tracked, episodeCache, watchedEpisodeKeys]);
 
   const upcomingEpisodes = useMemo(() => {
     const byEpisode = new Map<string, UpcomingEpisodeItem>();
@@ -2066,7 +2096,7 @@ function App() {
     }
 
     return sortSeriesByTitle(tracked);
-  }, [tracked, libraryFilter]);
+  }, [tracked, libraryFilter, episodeCache, watchedEpisodeKeys]);
 
   const groupedLibrarySeries = useMemo<LibrarySeriesGroup[]>(() => {
     if (libraryFilter === "waiting") {
