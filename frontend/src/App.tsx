@@ -46,6 +46,7 @@ import {
   StreamingProvider,
   TopSeriesStat,
   PopularSeries,
+  RecommendedSeries,
   TrendingSeries,
   TrackedSeries,
   UpcomingEpisodeItem,
@@ -70,6 +71,7 @@ import {
   toDateKey,
   type CalendarDayCell,
 } from "./utils/date";
+import { getRecommendedSeries } from "./utils/recommendations";
 import type {
   ActiveTab,
   DashboardMetric,
@@ -410,6 +412,7 @@ function App() {
   const pushNotifications = usePushNotifications(auth.user?.uid);
   const continueScrollRef = useRef<HTMLDivElement | null>(null);
   const trendingScrollRef = useRef<HTMLDivElement | null>(null);
+  const recommendedScrollRef = useRef<HTMLDivElement | null>(null);
   const popularScrollRef = useRef<HTMLDivElement | null>(null);
   const requestedSeriesModalTabRef = useRef<SeriesModalTab>("details");
   const requestedExpandedSeasonRef = useRef<number | null>(null);
@@ -1676,6 +1679,15 @@ function App() {
       .slice(0, 10);
   }, [tracked, popularSeries]);
 
+  const recommendedSeries = useMemo(
+    () =>
+      getRecommendedSeries(tracked, [
+        ...popularSeries,
+        ...trendingSeries,
+      ]),
+    [tracked, popularSeries, trendingSeries],
+  );
+
   useEffect(() => {
     if (
       (activeTab !== "home" &&
@@ -1896,6 +1908,8 @@ function App() {
     isTrackedLoading && continueWatching.length === 0;
   const isTrendingSeriesLoading =
     isTrendingLoading && suggestedTrendingSeries.length === 0;
+  const isRecommendedSeriesLoading =
+    (isPopularLoading || isTrendingLoading) && recommendedSeries.length === 0;
   const isPopularSeriesLoading =
     isPopularLoading && suggestedPopularSeries.length === 0;
   const isUpcomingEpisodeLoading =
@@ -2280,6 +2294,10 @@ function App() {
     );
   };
 
+  const openRecommendedSeriesDetails = (series: RecommendedSeries) => {
+    openPopularSeriesDetails(series);
+  };
+
   const getInProgressSeasonNumber = (series: TrackedSeries) => {
     const seriesEpisodes = episodeCache[String(series.tmdb_id)] ?? [];
     const sortedEpisodes = [...seriesEpisodes]
@@ -2525,6 +2543,17 @@ function App() {
     });
   };
 
+  const scrollRecommendedSeries = (direction: "left" | "right") => {
+    const container = recommendedScrollRef.current;
+    if (!container) return;
+
+    const distance = Math.round(container.clientWidth * 0.78);
+    container.scrollBy({
+      left: direction === "left" ? -distance : distance,
+      behavior: "smooth",
+    });
+  };
+
   const scrollPopularSeries = (direction: "left" | "right") => {
     const container = popularScrollRef.current;
     if (!container) return;
@@ -2606,6 +2635,7 @@ function App() {
             isAppInstalled={isAppInstalled}
             isContinueWatchingLoading={isContinueWatchingLoading}
             isDashboardLoading={isDashboardLoading}
+            isRecommendedSeriesLoading={isRecommendedSeriesLoading}
             isTrendingSeriesLoading={isTrendingSeriesLoading}
             isPopularSeriesLoading={isPopularSeriesLoading}
             isUpcomingEpisodeLoading={isUpcomingEpisodeLoading}
@@ -2614,10 +2644,12 @@ function App() {
               auth.isSignedIn ? pushNotifications.status : "unsupported"
             }
             suggestedTrendingSeries={suggestedTrendingSeries}
+            recommendedSeries={recommendedSeries}
             suggestedPopularSeries={suggestedPopularSeries}
             syncLabel={syncLabel}
             syncStatus={syncStatus}
             trendingScrollRef={trendingScrollRef}
+            recommendedScrollRef={recommendedScrollRef}
             popularScrollRef={popularScrollRef}
             upcomingEpisodes={upcomingEpisodes}
             userPicture={auth.user?.picture}
@@ -2629,9 +2661,11 @@ function App() {
             onOpenContinueWatchingSeries={openContinueWatchingSeries}
             onOpenEpisodeModal={openEpisodeModal}
             onOpenTrendingSeriesDetails={openTrendingSeriesDetails}
+            onOpenRecommendedSeriesDetails={openRecommendedSeriesDetails}
             onOpenPopularSeriesDetails={openPopularSeriesDetails}
             onScrollContinueWatching={scrollContinueWatching}
             onScrollTrendingSeries={scrollTrendingSeries}
+            onScrollRecommendedSeries={scrollRecommendedSeries}
             onScrollPopularSeries={scrollPopularSeries}
             onSignIn={auth.signIn}
             onSignOut={auth.signOut}

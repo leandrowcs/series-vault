@@ -14,6 +14,7 @@ import {
   Download,
   Info,
   Play,
+  Sparkles,
   Star,
 } from "lucide-react";
 import { MediaImage } from "../components/MediaImage";
@@ -23,6 +24,7 @@ import type {
   TrackedSeries,
   TrendingSeries,
   PopularSeries,
+  RecommendedSeries,
   UpcomingEpisodeItem,
 } from "../types/series";
 import { formatDate, getDateKey, toDateKey } from "../utils/date";
@@ -36,16 +38,19 @@ type HomePageProps = {
   isAppInstalled: boolean;
   isContinueWatchingLoading: boolean;
   isDashboardLoading: boolean;
+  isRecommendedSeriesLoading: boolean;
   isTrendingSeriesLoading: boolean;
   isPopularSeriesLoading: boolean;
   isUpcomingEpisodeLoading: boolean;
   loading: boolean;
   notificationStatus: PushNotificationStatus;
+  recommendedSeries: RecommendedSeries[];
   suggestedTrendingSeries: TrendingSeries[];
   suggestedPopularSeries: PopularSeries[];
   syncLabel: string;
   syncStatus: "idle" | "syncing" | "synced" | "error";
   trendingScrollRef: RefObject<HTMLDivElement>;
+  recommendedScrollRef: RefObject<HTMLDivElement>;
   popularScrollRef: RefObject<HTMLDivElement>;
   upcomingEpisodes: UpcomingEpisodeItem[];
   userPicture?: string;
@@ -59,9 +64,11 @@ type HomePageProps = {
   onEnableNotifications: () => void;
   onOpenContinueWatchingSeries: (series: TrackedSeries) => void;
   onOpenEpisodeModal: (episode: UpcomingEpisodeItem) => void;
+  onOpenRecommendedSeriesDetails: (series: RecommendedSeries) => void;
   onOpenTrendingSeriesDetails: (series: TrendingSeries) => void;
   onOpenPopularSeriesDetails: (series: PopularSeries) => void;
   onScrollContinueWatching: (direction: "left" | "right") => void;
+  onScrollRecommendedSeries: (direction: "left" | "right") => void;
   onScrollTrendingSeries: (direction: "left" | "right") => void;
   onScrollPopularSeries: (direction: "left" | "right") => void;
   onSignIn: () => void;
@@ -79,16 +86,19 @@ export const HomePage = ({
   isAppInstalled,
   isContinueWatchingLoading,
   isDashboardLoading,
+  isRecommendedSeriesLoading,
   isTrendingSeriesLoading,
   isPopularSeriesLoading,
   isUpcomingEpisodeLoading,
   loading,
   notificationStatus,
+  recommendedSeries,
   suggestedTrendingSeries,
   suggestedPopularSeries,
   syncLabel,
   syncStatus,
   trendingScrollRef,
+  recommendedScrollRef,
   popularScrollRef,
   upcomingEpisodes,
   userPicture,
@@ -102,9 +112,11 @@ export const HomePage = ({
   onEnableNotifications,
   onOpenContinueWatchingSeries,
   onOpenEpisodeModal,
+  onOpenRecommendedSeriesDetails,
   onOpenTrendingSeriesDetails,
   onOpenPopularSeriesDetails,
   onScrollContinueWatching,
+  onScrollRecommendedSeries,
   onScrollTrendingSeries,
   onScrollPopularSeries,
   onSignIn,
@@ -341,6 +353,110 @@ export const HomePage = ({
               );
             })}
       </div>
+
+      <section className="home-section">
+        <div className="section-heading">
+          <h2>Séries recomendadas</h2>
+          <span className="section-actions">
+            {recommendedSeries.length > 2 && (
+              <span className="carousel-controls">
+                <button
+                  type="button"
+                  className="icon-button carousel-button"
+                  aria-label="Rolar séries recomendadas para a esquerda"
+                  onClick={() => onScrollRecommendedSeries("left")}
+                >
+                  <ChevronLeft aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  className="icon-button carousel-button"
+                  aria-label="Rolar séries recomendadas para a direita"
+                  onClick={() => onScrollRecommendedSeries("right")}
+                >
+                  <ChevronRight aria-hidden="true" />
+                </button>
+              </span>
+            )}
+          </span>
+        </div>
+
+        {isRecommendedSeriesLoading ? (
+          <div
+            className="continue-watching-scroll"
+            aria-label="Carregando séries recomendadas"
+          >
+            {Array.from({ length: 5 }).map((_, index) => (
+              <div
+                key={`recommended-skeleton-${index}`}
+                className="continue-card continue-card-skeleton"
+                aria-hidden="true"
+              >
+                <span className="continue-poster-frame skeleton" />
+                <span className="continue-copy">
+                  <span className="skeleton skeleton-text skeleton-title" />
+                  <span className="skeleton skeleton-text skeleton-subtitle" />
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : recommendedSeries.length === 0 ? (
+          <p className="empty-state">
+            Assista ou conclua algumas séries para liberar recomendações mais certeiras.
+          </p>
+        ) : (
+          <div
+            ref={recommendedScrollRef}
+            className="continue-watching-scroll trending-series-scroll"
+            onWheel={onContinueWatchingWheel}
+          >
+            {recommendedSeries.map((series) => (
+              <article key={series.tmdb_id} className="trending-card">
+                <button
+                  type="button"
+                  className="continue-card trending-detail-button"
+                  onClick={() => onOpenRecommendedSeriesDetails(series)}
+                >
+                  <span className="continue-poster-frame">
+                    <MediaImage
+                      path={series.poster_path}
+                      alt={`Capa de ${series.name}`}
+                      className="continue-poster"
+                      fallback="Sem capa"
+                      size="w342"
+                    />
+                    <span className="continue-card-shade" />
+                    <span className="trending-rating recommended-rating">
+                      <Sparkles aria-hidden="true" />
+                      {series.vote_average ? series.vote_average.toFixed(1) : "-"}
+                    </span>
+                  </span>
+                  <span className="continue-copy recommended-copy">
+                    <strong>{series.name}</strong>
+                    <small>{series.recommendationReason}</small>
+                    {series.matchedGenres.length > 0 && (
+                      <span className="recommended-genre-list">
+                        {series.matchedGenres.slice(0, 2).map((genre) => (
+                          <span key={genre}>{genre}</span>
+                        ))}
+                      </span>
+                    )}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className="trending-add-button"
+                  disabled={loading}
+                  onClick={() => onOpenRecommendedSeriesDetails(series)}
+                >
+                  <Info aria-hidden="true" />
+                  Detalhes
+                </button>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
 
       <section className="home-section">
         <div className="section-heading">

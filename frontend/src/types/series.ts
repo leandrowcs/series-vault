@@ -4,6 +4,8 @@ export type SearchResult = {
   first_air_date?: string
   overview?: string
   poster_path?: string
+  genre_ids?: number[]
+  genres?: string[]
 }
 
 export type TrendingSeries = SearchResult & {
@@ -13,6 +15,12 @@ export type TrendingSeries = SearchResult & {
 }
 
 export type PopularSeries = TrendingSeries
+
+export type RecommendedSeries = PopularSeries & {
+  matchedGenres: string[]
+  recommendationReason: string
+  recommendationScore: number
+}
 
 export type TrackedSeries = {
   id: number
