@@ -1321,6 +1321,12 @@
   font-weight: 900;
 }
 
+.recommended-refresh-button {
+  display: flex;
+  width: fit-content;
+  margin: 12px auto 0;
+}
+
 .trending-add-button svg {
   width: 15px;
   height: 15px;

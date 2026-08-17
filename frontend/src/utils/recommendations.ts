@@ -98,6 +98,7 @@ const getRecommendationReason = (matchedGenres: string[], source: "watching" | "
 export const getRecommendedSeries = (
   trackedSeries: TrackedSeries[],
   candidates: CandidateSeries[],
+  limit?: number,
 ): RecommendedSeries[] => {
   const genrePreferences = getGenrePreferences(trackedSeries);
   if (genrePreferences.size === 0) return [];
@@ -160,5 +161,5 @@ export const getRecommendedSeries = (
         seriesB.recommendationScore - seriesA.recommendationScore ||
         Number(seriesB.vote_count ?? 0) - Number(seriesA.vote_count ?? 0),
     )
-    .slice(0, 10);
+    .slice(0, limit);
 };

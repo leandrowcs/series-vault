@@ -426,6 +426,7 @@ function App() {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [trendingSeries, setTrendingSeries] = useState<TrendingSeries[]>([]);
   const [popularSeries, setPopularSeries] = useState<PopularSeries[]>([]);
+  const [recommendedPage, setRecommendedPage] = useState(0);
   const [tracked, setTracked] = useState<TrackedSeries[]>([]);
   const [selectedSeries, setSelectedSeries] = useState<TrackedSeries | null>(
     null,
@@ -1679,7 +1680,7 @@ function App() {
       .slice(0, 10);
   }, [tracked, popularSeries]);
 
-  const recommendedSeries = useMemo(
+  const allRecommendedSeries = useMemo(
     () =>
       getRecommendedSeries(tracked, [
         ...popularSeries,
@@ -1687,6 +1688,12 @@ function App() {
       ]),
     [tracked, popularSeries, trendingSeries],
   );
+  const recommendedSeries = useMemo(() => {
+    const pageCount = Math.max(1, Math.ceil(allRecommendedSeries.length / 10));
+    const page = recommendedPage % pageCount;
+
+    return allRecommendedSeries.slice(page * 10, (page + 1) * 10);
+  }, [allRecommendedSeries, recommendedPage]);
 
   useEffect(() => {
     if (
@@ -2636,6 +2643,7 @@ function App() {
             isContinueWatchingLoading={isContinueWatchingLoading}
             isDashboardLoading={isDashboardLoading}
             isRecommendedSeriesLoading={isRecommendedSeriesLoading}
+            hasMoreRecommendedSeries={allRecommendedSeries.length > 10}
             isTrendingSeriesLoading={isTrendingSeriesLoading}
             isPopularSeriesLoading={isPopularSeriesLoading}
             isUpcomingEpisodeLoading={isUpcomingEpisodeLoading}
@@ -2662,6 +2670,7 @@ function App() {
             onOpenEpisodeModal={openEpisodeModal}
             onOpenTrendingSeriesDetails={openTrendingSeriesDetails}
             onOpenRecommendedSeriesDetails={openRecommendedSeriesDetails}
+            onRefreshRecommendedSeries={() => setRecommendedPage((page) => page + 1)}
             onOpenPopularSeriesDetails={openPopularSeriesDetails}
             onScrollContinueWatching={scrollContinueWatching}
             onScrollTrendingSeries={scrollTrendingSeries}

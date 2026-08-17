@@ -9,6 +9,7 @@ import {
 import {
   ChevronLeft,
   ChevronRight,
+  RefreshCw,
   Bell,
   BellRing,
   Download,
@@ -42,6 +43,7 @@ type HomePageProps = {
   isTrendingSeriesLoading: boolean;
   isPopularSeriesLoading: boolean;
   isUpcomingEpisodeLoading: boolean;
+  hasMoreRecommendedSeries: boolean;
   loading: boolean;
   notificationStatus: PushNotificationStatus;
   recommendedSeries: RecommendedSeries[];
@@ -65,6 +67,7 @@ type HomePageProps = {
   onOpenContinueWatchingSeries: (series: TrackedSeries) => void;
   onOpenEpisodeModal: (episode: UpcomingEpisodeItem) => void;
   onOpenRecommendedSeriesDetails: (series: RecommendedSeries) => void;
+  onRefreshRecommendedSeries: () => void;
   onOpenTrendingSeriesDetails: (series: TrendingSeries) => void;
   onOpenPopularSeriesDetails: (series: PopularSeries) => void;
   onScrollContinueWatching: (direction: "left" | "right") => void;
@@ -90,6 +93,7 @@ export const HomePage = ({
   isTrendingSeriesLoading,
   isPopularSeriesLoading,
   isUpcomingEpisodeLoading,
+  hasMoreRecommendedSeries,
   loading,
   notificationStatus,
   recommendedSeries,
@@ -113,6 +117,7 @@ export const HomePage = ({
   onOpenContinueWatchingSeries,
   onOpenEpisodeModal,
   onOpenRecommendedSeriesDetails,
+  onRefreshRecommendedSeries,
   onOpenTrendingSeriesDetails,
   onOpenPopularSeriesDetails,
   onScrollContinueWatching,
@@ -455,6 +460,16 @@ export const HomePage = ({
               </article>
             ))}
           </div>
+        )}
+        {hasMoreRecommendedSeries && !isRecommendedSeriesLoading && (
+          <button
+            type="button"
+            className="trending-add-button recommended-refresh-button"
+            onClick={onRefreshRecommendedSeries}
+          >
+            <RefreshCw aria-hidden="true" />
+            Buscar outras
+          </button>
         )}
       </section>
 
