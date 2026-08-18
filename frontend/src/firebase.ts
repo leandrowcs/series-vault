@@ -65,7 +65,9 @@ export const googleProvider = new GoogleAuthProvider()
 googleProvider.addScope('openid')
 googleProvider.addScope('email')
 googleProvider.addScope('profile')
+// escopo sensível: obriga o Google a aplicar a lista de Test users do consent screen
+googleProvider.addScope('https://www.googleapis.com/auth/drive.appdata')
 googleProvider.setCustomParameters({
   include_granted_scopes: 'true',
-  prompt: 'select_account',
+  prompt: 'select_account consent',
 })
