@@ -24,9 +24,34 @@ const AUTHORIZED_EMAILS = new Set(
 
 const UNAUTHORIZED_MESSAGE =
   'Sua conta não está autorizada. Para solicitar acesso ao app de teste, entre em contato com leandrowcs@gmail.com.'
+const AUTH_SERVER_ERROR_MESSAGE =
+  'Não foi possível concluir o login porque o serviço retornou erro 500. Tente novamente e, se continuar, entre em contato com leandrowcs@gmail.com.'
 
 const isAuthorizedUser = (user: User) =>
   Boolean(user.email && AUTHORIZED_EMAILS.has(user.email.toLowerCase()))
+
+const getAuthErrorMessage = (error: unknown) => {
+  if (
+    error &&
+    typeof error === 'object' &&
+    'status' in error &&
+    Number(error.status) === 500
+  ) {
+    return AUTH_SERVER_ERROR_MESSAGE
+  }
+
+  if (error && typeof error === 'object' && 'code' in error) {
+    const code = String(error.code)
+    if (
+      code === 'auth/internal-error' ||
+      code === 'auth/network-request-failed'
+    ) {
+      return AUTH_SERVER_ERROR_MESSAGE
+    }
+  }
+
+  return error instanceof Error ? error.message : 'Falha no login Google'
+}
 
 const toCloudUser = (user: User): CloudUser => ({
   uid: user.uid,
@@ -47,20 +72,29 @@ export const useCloudAuth = () => {
       return
     }
 
-    return onAuthStateChanged(firebaseAuth, (nextUser) => {
-      if (nextUser && !isAuthorizedUser(nextUser)) {
+    return onAuthStateChanged(
+      firebaseAuth,
+      (nextUser) => {
+        if (nextUser && !isAuthorizedUser(nextUser)) {
+          setUser(null)
+          setDriveAccessToken(null)
+          setError(UNAUTHORIZED_MESSAGE)
+          void firebaseSignOut(firebaseAuth)
+          setIsLoading(false)
+          return
+        }
+
+        setUser(nextUser ? toCloudUser(nextUser) : null)
+        if (nextUser) setError(null)
+        setIsLoading(false)
+      },
+      (authError) => {
         setUser(null)
         setDriveAccessToken(null)
-        setError(UNAUTHORIZED_MESSAGE)
-        void firebaseSignOut(firebaseAuth)
+        setError(getAuthErrorMessage(authError))
         setIsLoading(false)
-        return
-      }
-
-      setUser(nextUser ? toCloudUser(nextUser) : null)
-      setError(null)
-      setIsLoading(false)
-    })
+      },
+    )
   }, [])
 
   const signIn = useCallback(async () => {
@@ -84,7 +118,9 @@ export const useCloudAuth = () => {
       setDriveAccessToken(credential?.accessToken ?? null)
       setUser(toCloudUser(result.user))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Falha no login Google')
+      setUser(null)
+      setDriveAccessToken(null)
+      setError(getAuthErrorMessage(err))
     }
   }, [])
 
