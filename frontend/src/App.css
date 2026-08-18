@@ -2320,30 +2320,58 @@
 .series-user-rating {
   display: flex;
   align-items: center;
+  gap: 8px;
+}
+
+.series-user-rating-stars {
+  position: relative;
+  display: inline-flex;
+  cursor: pointer;
+  outline-offset: 4px;
+}
+
+.series-user-rating-stars-base,
+.series-user-rating-stars-fill {
+  display: flex;
+  flex-wrap: nowrap;
   gap: 2px;
 }
 
-.series-rating-star-button {
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  color: rgba(232, 241, 238, 0.24);
-}
-
-.series-rating-star-button svg {
+.series-user-rating-stars-base svg,
+.series-user-rating-stars-fill svg {
   width: 16px;
   height: 16px;
+  flex: none;
   stroke-width: 2.2;
+}
+
+.series-user-rating-stars-base svg {
+  color: rgba(232, 241, 238, 0.24);
   fill: transparent;
 }
 
-.series-rating-star-button.filled,
-.series-rating-star-button:hover {
-  color: var(--amber);
+.series-user-rating-stars-fill {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
 }
 
-.series-rating-star-button.filled svg {
+.series-user-rating-stars-fill svg {
+  color: var(--amber);
   fill: currentColor;
+}
+
+.series-user-rating-input {
+  width: 48px;
+  padding: 2px 4px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: rgba(6, 10, 9, 0.62);
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-align: center;
 }
 
 .series-modal-close {

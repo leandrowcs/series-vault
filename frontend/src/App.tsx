@@ -1065,7 +1065,7 @@ function App() {
   };
 
   const rateSeries = async (series: TrackedSeries, rating: number) => {
-    const clampedRating = Math.max(1, Math.min(10, Math.round(rating)));
+    const clampedRating = Math.max(0, Math.min(10, Math.round(rating * 10) / 10));
     const ratedSeries: TrackedSeries = {
       ...series,
       user_rating: clampedRating,
@@ -2512,9 +2512,6 @@ function App() {
     ? tracked.find((series) => series.tmdb_id === selectedSeries.tmdb_id)
     : undefined;
   const isSelectedSeriesTracked = Boolean(selectedTrackedSeries);
-  const selectedUserStarCount = getTmdbStarCount(
-    selectedTrackedSeries?.user_rating,
-  );
 
   const selectedWatchProviders = selectedSeries
     ? (watchProvidersBySeries[selectedSeries.id] ??
@@ -2915,37 +2912,80 @@ function App() {
                     <div>
                       <span>Sua nota</span>
                       {isSelectedSeriesTracked && selectedTrackedSeries ? (
-                        <div
-                          className="series-user-rating"
-                          role="radiogroup"
-                          aria-label="Sua nota para a série"
-                        >
-                          {Array.from({ length: 5 }).map((_, index) => (
-                            <button
-                              key={index}
-                              type="button"
-                              role="radio"
-                              aria-checked={index < selectedUserStarCount}
-                              aria-label={`Nota ${(index + 1) * 2} de 10`}
-                              className={
-                                index < selectedUserStarCount
-                                  ? "icon-button series-rating-star-button filled"
-                                  : "icon-button series-rating-star-button"
+                        <div className="series-user-rating">
+                          <div
+                            className="series-user-rating-stars"
+                            role="slider"
+                            tabIndex={0}
+                            aria-label="Sua nota para a série"
+                            aria-valuemin={0}
+                            aria-valuemax={10}
+                            aria-valuenow={selectedTrackedSeries.user_rating ?? 0}
+                            onClick={(event) => {
+                              const rect =
+                                event.currentTarget.getBoundingClientRect();
+                              const ratio = Math.max(
+                                0,
+                                Math.min(1, (event.clientX - rect.left) / rect.width),
+                              );
+                              rateSeries(
+                                selectedTrackedSeries,
+                                Math.round(ratio * 10 * 2) / 2,
+                              );
+                            }}
+                            onKeyDown={(event) => {
+                              const current =
+                                selectedTrackedSeries.user_rating ?? 0;
+                              if (event.key === "ArrowRight") {
+                                rateSeries(
+                                  selectedTrackedSeries,
+                                  Math.min(10, current + 0.5),
+                                );
                               }
-                              onClick={() =>
-                                rateSeries(selectedTrackedSeries, (index + 1) * 2)
+                              if (event.key === "ArrowLeft") {
+                                rateSeries(
+                                  selectedTrackedSeries,
+                                  Math.max(0, current - 0.5),
+                                );
                               }
+                            }}
+                          >
+                            <div className="series-user-rating-stars-base">
+                              {Array.from({ length: 5 }).map((_, index) => (
+                                <Star key={index} aria-hidden="true" />
+                              ))}
+                            </div>
+                            <div
+                              className="series-user-rating-stars-fill"
+                              style={{
+                                width: `${((selectedTrackedSeries.user_rating ?? 0) / 10) * 100}%`,
+                              }}
                             >
-                              <Star aria-hidden="true" />
-                            </button>
-                          ))}
+                              {Array.from({ length: 5 }).map((_, index) => (
+                                <Star key={index} aria-hidden="true" />
+                              ))}
+                            </div>
+                          </div>
+                          <input
+                            type="number"
+                            inputMode="decimal"
+                            min={0}
+                            max={10}
+                            step={0.1}
+                            className="series-user-rating-input"
+                            placeholder="-"
+                            value={selectedTrackedSeries.user_rating ?? ""}
+                            onChange={(event) => {
+                              const value = event.target.valueAsNumber;
+                              if (!Number.isNaN(value)) {
+                                rateSeries(selectedTrackedSeries, value);
+                              }
+                            }}
+                          />
                         </div>
                       ) : (
                         <small>Adicione a série para avaliar</small>
                       )}
-                      {selectedTrackedSeries?.user_rating ? (
-                        <small>{selectedTrackedSeries.user_rating.toFixed(0)}/10</small>
-                      ) : null}
                     </div>
                     <div>
                       <span>Assistidos</span>
