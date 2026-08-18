@@ -2317,6 +2317,35 @@
   fill: currentColor;
 }
 
+.series-user-rating {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.series-rating-star-button {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  color: rgba(232, 241, 238, 0.24);
+}
+
+.series-rating-star-button svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2.2;
+  fill: transparent;
+}
+
+.series-rating-star-button.filled,
+.series-rating-star-button:hover {
+  color: var(--amber);
+}
+
+.series-rating-star-button.filled svg {
+  fill: currentColor;
+}
+
 .series-modal-close {
   align-self: start;
   border-color: var(--border);

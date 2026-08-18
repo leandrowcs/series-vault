@@ -38,6 +38,7 @@ export type TrackedSeries = {
   episode_run_time?: number
   vote_average?: number
   vote_count?: number
+  user_rating?: number
   genres?: string[]
   actors?: {
     name: string

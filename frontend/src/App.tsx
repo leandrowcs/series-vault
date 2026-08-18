@@ -1064,6 +1064,32 @@ function App() {
     }
   };
 
+  const rateSeries = async (series: TrackedSeries, rating: number) => {
+    const clampedRating = Math.max(1, Math.min(10, Math.round(rating)));
+    const ratedSeries: TrackedSeries = {
+      ...series,
+      user_rating: clampedRating,
+      last_synced_at: new Date().toISOString(),
+    };
+
+    setTracked((current) =>
+      current.map((item) =>
+        item.tmdb_id === series.tmdb_id ? ratedSeries : item,
+      ),
+    );
+    setSelectedSeries((current) =>
+      current?.tmdb_id === series.tmdb_id ? ratedSeries : current,
+    );
+
+    try {
+      if (auth.user) {
+        await saveCloudTrackedSeries(auth.user.uid, ratedSeries);
+      }
+    } catch (err) {
+      setError("Falha ao salvar sua nota");
+    }
+  };
+
   const removeSeriesFromLibrary = async (series: TrackedSeries) => {
     setTracked((current) =>
       current.filter((item) => item.tmdb_id !== series.tmdb_id),
@@ -2486,6 +2512,9 @@ function App() {
     ? tracked.find((series) => series.tmdb_id === selectedSeries.tmdb_id)
     : undefined;
   const isSelectedSeriesTracked = Boolean(selectedTrackedSeries);
+  const selectedUserStarCount = getTmdbStarCount(
+    selectedTrackedSeries?.user_rating,
+  );
 
   const selectedWatchProviders = selectedSeries
     ? (watchProvidersBySeries[selectedSeries.id] ??
@@ -2881,6 +2910,41 @@ function App() {
                         <small>
                           {selectedSeries.vote_count.toLocaleString("pt-BR")} votos
                         </small>
+                      ) : null}
+                    </div>
+                    <div>
+                      <span>Sua nota</span>
+                      {isSelectedSeriesTracked && selectedTrackedSeries ? (
+                        <div
+                          className="series-user-rating"
+                          role="radiogroup"
+                          aria-label="Sua nota para a série"
+                        >
+                          {Array.from({ length: 5 }).map((_, index) => (
+                            <button
+                              key={index}
+                              type="button"
+                              role="radio"
+                              aria-checked={index < selectedUserStarCount}
+                              aria-label={`Nota ${(index + 1) * 2} de 10`}
+                              className={
+                                index < selectedUserStarCount
+                                  ? "icon-button series-rating-star-button filled"
+                                  : "icon-button series-rating-star-button"
+                              }
+                              onClick={() =>
+                                rateSeries(selectedTrackedSeries, (index + 1) * 2)
+                              }
+                            >
+                              <Star aria-hidden="true" />
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <small>Adicione a série para avaliar</small>
+                      )}
+                      {selectedTrackedSeries?.user_rating ? (
+                        <small>{selectedTrackedSeries.user_rating.toFixed(0)}/10</small>
                       ) : null}
                     </div>
                     <div>
