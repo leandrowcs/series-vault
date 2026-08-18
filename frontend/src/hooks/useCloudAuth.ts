@@ -15,20 +15,10 @@ export type CloudUser = {
   picture: string
 }
 
-const AUTHORIZED_EMAILS = new Set(
-  String(import.meta.env.VITE_AUTHORIZED_EMAILS ?? '')
-    .split(',')
-    .map((email) => email.trim().toLowerCase())
-    .filter(Boolean),
-)
-
 const UNAUTHORIZED_MESSAGE =
   'Sua conta não está autorizada. Para solicitar acesso ao app de teste, entre em contato com leandrowcs@gmail.com.'
 const AUTH_SERVER_ERROR_MESSAGE =
   'Não foi possível concluir o login porque o serviço retornou erro 500. Tente novamente e, se continuar, entre em contato com leandrowcs@gmail.com.'
-
-const isAuthorizedUser = (user: User) =>
-  Boolean(user.email && AUTHORIZED_EMAILS.has(user.email.toLowerCase()))
 
 const getAuthErrorMessage = (error: unknown) => {
   if (
@@ -42,6 +32,17 @@ const getAuthErrorMessage = (error: unknown) => {
 
   if (error && typeof error === 'object' && 'code' in error) {
     const code = String(error.code)
+    if (
+      code === 'auth/operation-not-allowed' ||
+      code === 'auth/account-exists-with-different-credential'
+    ) {
+      return 'Login Google não está habilitado para este projeto. Verifique a configuração do provedor no Firebase.'
+    }
+
+    if (code === 'auth/unauthorized-domain') {
+      return 'Este domínio não está autorizado no Firebase Authentication.'
+    }
+
     if (
       code === 'auth/internal-error' ||
       code === 'auth/network-request-failed'
@@ -75,15 +76,6 @@ export const useCloudAuth = () => {
     return onAuthStateChanged(
       firebaseAuth,
       (nextUser) => {
-        if (nextUser && !isAuthorizedUser(nextUser)) {
-          setUser(null)
-          setDriveAccessToken(null)
-          setError(UNAUTHORIZED_MESSAGE)
-          void firebaseSignOut(firebaseAuth)
-          setIsLoading(false)
-          return
-        }
-
         setUser(nextUser ? toCloudUser(nextUser) : null)
         if (nextUser) setError(null)
         setIsLoading(false)
@@ -106,14 +98,6 @@ export const useCloudAuth = () => {
     try {
       setError(null)
       const result = await signInWithPopup(firebaseAuth, googleProvider)
-      if (!isAuthorizedUser(result.user)) {
-        await firebaseSignOut(firebaseAuth)
-        setDriveAccessToken(null)
-        setUser(null)
-        setError(UNAUTHORIZED_MESSAGE)
-        return
-      }
-
       const credential = GoogleAuthProvider.credentialFromResult(result)
       setDriveAccessToken(credential?.accessToken ?? null)
       setUser(toCloudUser(result.user))

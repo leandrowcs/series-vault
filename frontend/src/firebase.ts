@@ -65,8 +65,7 @@ export const googleProvider = new GoogleAuthProvider()
 googleProvider.addScope('openid')
 googleProvider.addScope('email')
 googleProvider.addScope('profile')
-googleProvider.addScope('https://www.googleapis.com/auth/drive.appdata')
 googleProvider.setCustomParameters({
   include_granted_scopes: 'true',
-  prompt: 'select_account consent',
+  prompt: 'select_account',
 })
