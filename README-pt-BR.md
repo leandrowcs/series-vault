@@ -132,6 +132,7 @@ VITE_FIREBASE_STORAGE_BUCKET=
 VITE_FIREBASE_MESSAGING_SENDER_ID=
 VITE_FIREBASE_APP_ID=
 VITE_FIREBASE_VAPID_KEY=
+VITE_AUTHORIZED_EMAILS=leandrowcs@gmail.com
 ```
 
 ## Desenvolvimento Local
@@ -253,6 +254,7 @@ VITE_FIREBASE_STORAGE_BUCKET=
 VITE_FIREBASE_MESSAGING_SENDER_ID=
 VITE_FIREBASE_APP_ID=
 VITE_FIREBASE_VAPID_KEY=
+VITE_AUTHORIZED_EMAILS=
 ```
 
 `VITE_API_BASE_URL` e opcional quando o frontend e as Vercel Functions estao no mesmo projeto Vercel, porque o app usa `/api` por padrao.

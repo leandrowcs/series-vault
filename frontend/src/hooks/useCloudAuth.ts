@@ -15,6 +15,19 @@ export type CloudUser = {
   picture: string
 }
 
+const AUTHORIZED_EMAILS = new Set(
+  String(import.meta.env.VITE_AUTHORIZED_EMAILS ?? '')
+    .split(',')
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean),
+)
+
+const UNAUTHORIZED_MESSAGE =
+  'Sua conta não está autorizada. Para solicitar acesso ao app de teste, entre em contato com leandrowcs@gmail.com.'
+
+const isAuthorizedUser = (user: User) =>
+  Boolean(user.email && AUTHORIZED_EMAILS.has(user.email.toLowerCase()))
+
 const toCloudUser = (user: User): CloudUser => ({
   uid: user.uid,
   name: user.displayName ?? '',
@@ -35,7 +48,17 @@ export const useCloudAuth = () => {
     }
 
     return onAuthStateChanged(firebaseAuth, (nextUser) => {
+      if (nextUser && !isAuthorizedUser(nextUser)) {
+        setUser(null)
+        setDriveAccessToken(null)
+        setError(UNAUTHORIZED_MESSAGE)
+        void firebaseSignOut(firebaseAuth)
+        setIsLoading(false)
+        return
+      }
+
       setUser(nextUser ? toCloudUser(nextUser) : null)
+      setError(null)
       setIsLoading(false)
     })
   }, [])
@@ -49,6 +72,14 @@ export const useCloudAuth = () => {
     try {
       setError(null)
       const result = await signInWithPopup(firebaseAuth, googleProvider)
+      if (!isAuthorizedUser(result.user)) {
+        await firebaseSignOut(firebaseAuth)
+        setDriveAccessToken(null)
+        setUser(null)
+        setError(UNAUTHORIZED_MESSAGE)
+        return
+      }
+
       const credential = GoogleAuthProvider.credentialFromResult(result)
       setDriveAccessToken(credential?.accessToken ?? null)
       setUser(toCloudUser(result.user))

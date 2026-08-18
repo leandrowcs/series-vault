@@ -186,16 +186,29 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
-  width: min(100%, 320px);
-  min-height: 48px;
+  width: min(100%, 280px);
+  min-height: 32px;
   padding: 0 18px;
-  border: 1px solid rgba(20, 160, 133, 0.54);
-  border-radius: 8px;
-  background: linear-gradient(135deg, var(--primary), var(--primary-hover));
-  color: #04110f;
+  border: 1px solid #dadce0;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 2px 5px rgba(60, 64, 67, 0.18);
+  color: #3c4043;
   cursor: pointer;
   font: inherit;
   font-weight: 900;
+  transition: background-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.login-google-button:hover:not(:disabled) {
+  background: #f8fbff;
+  box-shadow: 0 3px 8px rgba(60, 64, 67, 0.24);
+  transform: translateY(-1px);
+}
+
+.login-google-button:focus-visible {
+  outline: 3px solid rgba(66, 133, 244, 0.35);
+  outline-offset: 2px;
 }
 
 .login-google-button:disabled {
@@ -205,7 +218,9 @@
 }
 
 .login-google-button svg {
-  width: 18px;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
 }
 
 .login-error {
@@ -3209,7 +3224,7 @@
 }
 
 .tmdb-attribution {
-  margin-top: 18px;
+  margin-top: 10px;
   color: rgba(245, 245, 245, 0.45);
   font-size: 0.68rem;
   text-align: center;
@@ -3236,8 +3251,8 @@
   }
 
   .app-shell {
-    height: calc(100dvh - 32px);
-    min-height: calc(100dvh - 32px);
+    height: calc(100dvh);
+    min-height: calc(100dvh - 10px);
     margin-top: 16px;
     margin-bottom: 16px;
     border-radius: 28px;
