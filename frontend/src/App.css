@@ -2318,13 +2318,13 @@
 }
 
 .series-user-rating {
-  display: flex;
+  display: flex !important;
   align-items: center;
   gap: 8px;
 }
 
 .series-user-rating-stars {
-  display: flex;
+  display: flex !important;
   flex-wrap: nowrap;
   gap: 2px;
 }
