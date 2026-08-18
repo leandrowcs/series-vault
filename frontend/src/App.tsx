@@ -2915,56 +2915,52 @@ function App() {
                         <div className="series-user-rating">
                           <div
                             className="series-user-rating-stars"
-                            role="slider"
-                            tabIndex={0}
+                            role="group"
                             aria-label="Sua nota para a série"
-                            aria-valuemin={0}
-                            aria-valuemax={10}
-                            aria-valuenow={selectedTrackedSeries.user_rating ?? 0}
-                            onClick={(event) => {
-                              const rect =
-                                event.currentTarget.getBoundingClientRect();
-                              const ratio = Math.max(
-                                0,
-                                Math.min(1, (event.clientX - rect.left) / rect.width),
-                              );
-                              rateSeries(
-                                selectedTrackedSeries,
-                                Math.round(ratio * 10 * 2) / 2,
-                              );
-                            }}
-                            onKeyDown={(event) => {
-                              const current =
-                                selectedTrackedSeries.user_rating ?? 0;
-                              if (event.key === "ArrowRight") {
-                                rateSeries(
-                                  selectedTrackedSeries,
-                                  Math.min(10, current + 0.5),
-                                );
-                              }
-                              if (event.key === "ArrowLeft") {
-                                rateSeries(
-                                  selectedTrackedSeries,
-                                  Math.max(0, current - 0.5),
-                                );
-                              }
-                            }}
                           >
-                            <div className="series-user-rating-stars-base">
-                              {Array.from({ length: 5 }).map((_, index) => (
-                                <Star key={index} aria-hidden="true" />
-                              ))}
-                            </div>
-                            <div
-                              className="series-user-rating-stars-fill"
-                              style={{
-                                width: `${((selectedTrackedSeries.user_rating ?? 0) / 10) * 100}%`,
-                              }}
-                            >
-                              {Array.from({ length: 5 }).map((_, index) => (
-                                <Star key={index} aria-hidden="true" />
-                              ))}
-                            </div>
+                            {Array.from({ length: 5 }).map((_, starIndex) => {
+                              const currentRating =
+                                selectedTrackedSeries.user_rating ?? 0;
+                              const leftValue = starIndex * 2 + 1;
+                              const rightValue = starIndex * 2 + 2;
+                              const leftFilled = currentRating >= leftValue;
+                              const rightFilled = currentRating >= rightValue;
+                              const clipPath = rightFilled
+                                ? "inset(0 0 0 0)"
+                                : leftFilled
+                                  ? "inset(0 50% 0 0)"
+                                  : "inset(0 100% 0 0)";
+
+                              return (
+                                <span key={starIndex} className="star-slot">
+                                  <Star
+                                    className="star-icon-base"
+                                    aria-hidden="true"
+                                  />
+                                  <Star
+                                    className="star-icon-fill"
+                                    aria-hidden="true"
+                                    style={{ clipPath }}
+                                  />
+                                  <button
+                                    type="button"
+                                    className="star-hit star-hit-left"
+                                    aria-label={`Nota ${leftValue} de 10`}
+                                    onClick={() =>
+                                      rateSeries(selectedTrackedSeries, leftValue)
+                                    }
+                                  />
+                                  <button
+                                    type="button"
+                                    className="star-hit star-hit-right"
+                                    aria-label={`Nota ${rightValue} de 10`}
+                                    onClick={() =>
+                                      rateSeries(selectedTrackedSeries, rightValue)
+                                    }
+                                  />
+                                </span>
+                              );
+                            })}
                           </div>
                           <input
                             type="number"

@@ -2324,42 +2324,54 @@
 }
 
 .series-user-rating-stars {
-  position: relative;
-  display: inline-flex;
-  cursor: pointer;
-  outline-offset: 4px;
-}
-
-.series-user-rating-stars-base,
-.series-user-rating-stars-fill {
   display: flex;
   flex-wrap: nowrap;
   gap: 2px;
 }
 
-.series-user-rating-stars-base svg,
-.series-user-rating-stars-fill svg {
+.star-slot {
+  position: relative;
+  display: block;
   width: 16px;
   height: 16px;
   flex: none;
-  stroke-width: 2.2;
 }
 
-.series-user-rating-stars-base svg {
+.star-slot svg {
+  position: absolute;
+  inset: 0;
+  width: 16px;
+  height: 16px;
+  stroke-width: 2.2;
+  pointer-events: none;
+}
+
+.star-icon-base {
   color: rgba(232, 241, 238, 0.24);
   fill: transparent;
 }
 
-.series-user-rating-stars-fill {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.series-user-rating-stars-fill svg {
+.star-icon-fill {
   color: var(--amber);
   fill: currentColor;
+}
+
+.star-hit {
+  position: absolute;
+  inset: 0;
+  width: 50%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.star-hit-left {
+  left: 0;
+}
+
+.star-hit-right {
+  left: 50%;
 }
 
 .series-user-rating-input {
