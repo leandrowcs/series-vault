@@ -492,6 +492,12 @@ function App() {
   const [seasonToScroll, setSeasonToScroll] = useState<number | null>(null);
 
   useEffect(() => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", activeTab);
+    window.history.replaceState(null, "", `${url.pathname}?${url.searchParams}${url.hash}`);
+  }, [activeTab]);
+
+  useEffect(() => {
     const standaloneQuery = window.matchMedia("(display-mode: standalone)");
     const navigatorWithStandalone = window.navigator as Navigator & {
       standalone?: boolean;
@@ -2696,7 +2702,13 @@ function App() {
             onOpenEpisodeModal={openEpisodeModal}
             onOpenTrendingSeriesDetails={openTrendingSeriesDetails}
             onOpenRecommendedSeriesDetails={openRecommendedSeriesDetails}
-            onRefreshRecommendedSeries={() => setRecommendedPage((page) => page + 1)}
+            onRefreshRecommendedSeries={() => {
+              recommendedScrollRef.current?.scrollTo({
+                left: 0,
+                behavior: "smooth",
+              });
+              setRecommendedPage((page) => page + 1);
+            }}
             onOpenPopularSeriesDetails={openPopularSeriesDetails}
             onScrollContinueWatching={scrollContinueWatching}
             onScrollTrendingSeries={scrollTrendingSeries}

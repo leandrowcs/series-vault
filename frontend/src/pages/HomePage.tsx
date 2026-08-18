@@ -468,7 +468,7 @@ export const HomePage = ({
             onClick={onRefreshRecommendedSeries}
           >
             <RefreshCw aria-hidden="true" />
-            Buscar outras
+            Atualizar lista
           </button>
         )}
       </section>
