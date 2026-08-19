@@ -361,6 +361,160 @@ export const HomePage = ({
 
       <section className="home-section">
         <div className="section-heading">
+          <h2>Continue assistindo</h2>
+          <span className="section-actions">
+            {continueWatching.length > 2 && (
+              <span className="carousel-controls">
+                <button
+                  type="button"
+                  className="icon-button carousel-button"
+                  aria-label="Rolar para a esquerda"
+                  onClick={() => onScrollContinueWatching("left")}
+                >
+                  <ChevronLeft aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  className="icon-button carousel-button"
+                  aria-label="Rolar para a direita"
+                  onClick={() => onScrollContinueWatching("right")}
+                >
+                  <ChevronRight aria-hidden="true" />
+                </button>
+              </span>
+            )}
+            <button type="button" onClick={onGoToLibrary}>
+              Ver tudo
+            </button>
+          </span>
+        </div>
+
+        {isContinueWatchingLoading ? (
+          <div
+            className="continue-watching-scroll"
+            aria-label="Carregando séries para continuar assistindo"
+          >
+            {Array.from({ length: 5 }).map((_, index) => (
+              <div
+                key={`continue-skeleton-${index}`}
+                className="continue-card continue-card-skeleton"
+                aria-hidden="true"
+              >
+                <span className="continue-poster-frame skeleton" />
+                <span className="continue-copy">
+                  <span className="skeleton skeleton-text skeleton-title" />
+                  <span className="skeleton skeleton-text skeleton-subtitle" />
+                  <span className="skeleton skeleton-text skeleton-progress" />
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : continueWatching.length === 0 ? (
+          <p className="empty-state">Adicione uma série para montar sua fila.</p>
+        ) : (
+          <div
+            ref={continueScrollRef}
+            className="continue-watching-scroll"
+            onWheel={onContinueWatchingWheel}
+          >
+            {continueWatching.map((series) => (
+              <button
+                key={series.id}
+                type="button"
+                className="continue-card"
+                onClick={() => onOpenContinueWatchingSeries(series)}
+              >
+                <span className="continue-poster-frame">
+                  <MediaImage
+                    path={series.poster_path}
+                    alt={`Capa de ${series.title}`}
+                    className="continue-poster"
+                    fallback="Sem capa"
+                    size="w342"
+                  />
+                  <span className="continue-card-shade" />
+                  <span className="continue-percent">
+                    {series.completed_percent}%
+                  </span>
+                  <span className="continue-play-button" aria-hidden="true">
+                    <Play />
+                  </span>
+                </span>
+                <span className="continue-copy">
+                  <strong>{series.title}</strong>
+                  <small>Assistido até {getLatestEpisodeLabel(series)}</small>
+                  <span className="progress-track">
+                    <span
+                      className="progress-fill"
+                      style={{ width: `${series.completed_percent}%` }}
+                    />
+                  </span>
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="home-section">
+        <div className="section-heading">
+          <h2>Próximos episódios</h2>
+          <button type="button" onClick={onGoToCalendar}>
+            Ver calendário
+          </button>
+        </div>
+
+        {isUpcomingEpisodeLoading ? (
+          <div className="upcoming-card upcoming-card-skeleton" aria-hidden="true">
+            <span className="upcoming-poster skeleton" />
+            <span>
+              <span className="skeleton skeleton-text skeleton-title" />
+              <span className="skeleton skeleton-text skeleton-subtitle" />
+              <span className="skeleton skeleton-text skeleton-date" />
+            </span>
+          </div>
+        ) : upcomingEpisodes.length > 0 ? (
+          <div className="upcoming-list">
+            {upcomingEpisodes.map((episode) => (
+              <button
+                key={[
+                  episode.episode_id,
+                  episode.series_id,
+                  episode.season_number,
+                  episode.episode_number,
+                ].join("-")}
+                type="button"
+                className="upcoming-card"
+                onClick={() => onOpenEpisodeModal(episode)}
+              >
+                <MediaImage
+                  path={episode.still_path ?? episode.series_poster_path}
+                  alt={`Imagem de ${episode.title ?? episode.series_title ?? "episódio"}`}
+                  className="upcoming-poster"
+                  fallback="Sem imagem"
+                  size="w300"
+                />
+                <span>
+                  <strong>{episode.series_title ?? "Série acompanhada"}</strong>
+                  <small>
+                    S{episode.season_number ?? "-"} - E
+                    {episode.episode_number ?? "-"}
+                    {episode.title ? ` · ${episode.title}` : ""}
+                  </small>
+                  <small>{formatDate(episode.air_date)}</small>
+                </span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="empty-state">
+            Nenhum episódio encontrado para sua fila no momento.
+          </p>
+        )}
+      </section>
+
+      <section className="home-section">
+        <div className="section-heading">
           <h2>Séries recomendadas</h2>
           <span className="section-actions">
             {recommendedSeries.length > 2 && (
@@ -672,160 +826,6 @@ export const HomePage = ({
               </article>
             ))}
           </div>
-        )}
-      </section>
-
-      <section className="home-section">
-        <div className="section-heading">
-          <h2>Continue assistindo</h2>
-          <span className="section-actions">
-            {continueWatching.length > 2 && (
-              <span className="carousel-controls">
-                <button
-                  type="button"
-                  className="icon-button carousel-button"
-                  aria-label="Rolar para a esquerda"
-                  onClick={() => onScrollContinueWatching("left")}
-                >
-                  <ChevronLeft aria-hidden="true" />
-                </button>
-                <button
-                  type="button"
-                  className="icon-button carousel-button"
-                  aria-label="Rolar para a direita"
-                  onClick={() => onScrollContinueWatching("right")}
-                >
-                  <ChevronRight aria-hidden="true" />
-                </button>
-              </span>
-            )}
-            <button type="button" onClick={onGoToLibrary}>
-              Ver tudo
-            </button>
-          </span>
-        </div>
-
-        {isContinueWatchingLoading ? (
-          <div
-            className="continue-watching-scroll"
-            aria-label="Carregando séries para continuar assistindo"
-          >
-            {Array.from({ length: 5 }).map((_, index) => (
-              <div
-                key={`continue-skeleton-${index}`}
-                className="continue-card continue-card-skeleton"
-                aria-hidden="true"
-              >
-                <span className="continue-poster-frame skeleton" />
-                <span className="continue-copy">
-                  <span className="skeleton skeleton-text skeleton-title" />
-                  <span className="skeleton skeleton-text skeleton-subtitle" />
-                  <span className="skeleton skeleton-text skeleton-progress" />
-                </span>
-              </div>
-            ))}
-          </div>
-        ) : continueWatching.length === 0 ? (
-          <p className="empty-state">Adicione uma série para montar sua fila.</p>
-        ) : (
-          <div
-            ref={continueScrollRef}
-            className="continue-watching-scroll"
-            onWheel={onContinueWatchingWheel}
-          >
-            {continueWatching.map((series) => (
-              <button
-                key={series.id}
-                type="button"
-                className="continue-card"
-                onClick={() => onOpenContinueWatchingSeries(series)}
-              >
-                <span className="continue-poster-frame">
-                  <MediaImage
-                    path={series.poster_path}
-                    alt={`Capa de ${series.title}`}
-                    className="continue-poster"
-                    fallback="Sem capa"
-                    size="w342"
-                  />
-                  <span className="continue-card-shade" />
-                  <span className="continue-percent">
-                    {series.completed_percent}%
-                  </span>
-                  <span className="continue-play-button" aria-hidden="true">
-                    <Play />
-                  </span>
-                </span>
-                <span className="continue-copy">
-                  <strong>{series.title}</strong>
-                  <small>Assistido até {getLatestEpisodeLabel(series)}</small>
-                  <span className="progress-track">
-                    <span
-                      className="progress-fill"
-                      style={{ width: `${series.completed_percent}%` }}
-                    />
-                  </span>
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section className="home-section">
-        <div className="section-heading">
-          <h2>Próximos episódios</h2>
-          <button type="button" onClick={onGoToCalendar}>
-            Ver calendário
-          </button>
-        </div>
-
-        {isUpcomingEpisodeLoading ? (
-          <div className="upcoming-card upcoming-card-skeleton" aria-hidden="true">
-            <span className="upcoming-poster skeleton" />
-            <span>
-              <span className="skeleton skeleton-text skeleton-title" />
-              <span className="skeleton skeleton-text skeleton-subtitle" />
-              <span className="skeleton skeleton-text skeleton-date" />
-            </span>
-          </div>
-        ) : upcomingEpisodes.length > 0 ? (
-          <div className="upcoming-list">
-            {upcomingEpisodes.map((episode) => (
-              <button
-                key={[
-                  episode.episode_id,
-                  episode.series_id,
-                  episode.season_number,
-                  episode.episode_number,
-                ].join("-")}
-                type="button"
-                className="upcoming-card"
-                onClick={() => onOpenEpisodeModal(episode)}
-              >
-                <MediaImage
-                  path={episode.still_path ?? episode.series_poster_path}
-                  alt={`Imagem de ${episode.title ?? episode.series_title ?? "episódio"}`}
-                  className="upcoming-poster"
-                  fallback="Sem imagem"
-                  size="w300"
-                />
-                <span>
-                  <strong>{episode.series_title ?? "Série acompanhada"}</strong>
-                  <small>
-                    S{episode.season_number ?? "-"} - E
-                    {episode.episode_number ?? "-"}
-                    {episode.title ? ` · ${episode.title}` : ""}
-                  </small>
-                  <small>{formatDate(episode.air_date)}</small>
-                </span>
-              </button>
-            ))}
-          </div>
-        ) : (
-          <p className="empty-state">
-            Nenhum episódio encontrado para sua fila no momento.
-          </p>
         )}
       </section>
     </section>
